@@ -1,0 +1,75 @@
+AIRA AI Limited Use Source-Available License
+Version 1.0
+
+Copyright (c) 2026 Superior Consultation, LLC. All rights reserved.
+
+This repository and its contents are made publicly visible for review, evaluation, security discussion, portfolio review, and collaboration with Superior Consultation, LLC. This is not an open-source license.
+
+1. Definitions
+
+"Software" means the AIRA AI source code, documentation, images, configuration files, database schema, application design, product concepts, and related materials in this repository.
+
+"You" means any person or organization accessing, viewing, cloning, downloading, or otherwise using the Software.
+
+"Owner" means Superior Consultation, LLC and its authorized representatives.
+
+2. Permitted Uses
+
+You may:
+
+- View the Software.
+- Clone or download the Software for personal review.
+- Run the Software locally for evaluation.
+- Submit issues, comments, or proposed changes to the Owner.
+- Reference the repository when discussing or evaluating the AIRA AI project.
+
+3. Restricted Uses
+
+Without prior written permission from the Owner, you may not:
+
+- Use the Software in production.
+- Sell, rent, lease, sublicense, host, or commercially exploit the Software.
+- Use the Software to provide a competing product or service.
+- Copy, redistribute, publish, or repackage the Software outside this repository.
+- Remove or alter copyright, trademark, attribution, or license notices.
+- Use AIRA AI, Superior Consultation, Work Zone OS, brand assets, visual assets, logos, portraits, product names, or related marks in another product or service.
+- Train, fine-tune, or evaluate commercial AI models using the Software, brand assets, documentation, or product materials.
+- Use the Software for unlawful surveillance, unauthorized call recording, unauthorized device control, credential theft, or privacy-invasive activity.
+
+4. Contributions
+
+By submitting an issue, pull request, suggestion, design, code change, documentation change, or other contribution, you grant the Owner a perpetual, worldwide, royalty-free, irrevocable license to use, modify, publish, distribute, and commercialize that contribution as part of the Software or related products.
+
+You represent that you have the right to submit your contribution and that it does not knowingly infringe another party's rights.
+
+5. No Patent License
+
+No patent rights are granted under this license.
+
+6. No Trademark License
+
+No rights are granted to use the Owner's names, marks, trade dress, branding, visual identity, product names, or logos except as necessary to identify this repository for permitted review or discussion.
+
+7. Privacy And Compliance
+
+You are responsible for complying with all applicable laws, platform policies, telecommunications rules, privacy rules, call recording laws, consent requirements, and data protection obligations if you evaluate or modify the Software.
+
+8. No Warranty
+
+THE SOFTWARE IS PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT WARRANTIES OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, NON-INFRINGEMENT, SECURITY, ACCURACY, OR AVAILABILITY.
+
+9. Limitation Of Liability
+
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE OWNER SHALL NOT BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, EXEMPLARY, OR PUNITIVE DAMAGES ARISING FROM OR RELATED TO THE SOFTWARE OR THIS LICENSE.
+
+10. Termination
+
+Any rights granted under this license terminate automatically if you violate its terms. Upon termination, you must stop using the Software and delete any copies in your possession or control.
+
+11. Separate Written Agreements
+
+The Owner may grant additional rights under a separate written agreement. If a separate written agreement conflicts with this license, the separate written agreement controls for the parties to that agreement.
+
+12. License Type For GitHub
+
+This is a custom proprietary source-available limited-use license. It is not an OSI-approved open-source license.

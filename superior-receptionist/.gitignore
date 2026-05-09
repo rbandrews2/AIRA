@@ -1,0 +1,46 @@
+# Node + PWA + Supabase + Netlify gitignore
+
+# Dependencies
+node_modules/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Local runtime data
+data/
+training.txt
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Local development
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Build and cache output
+dist/
+build/
+.output/
+.cache/
+.parcel-cache/
+.netlify/
+
+# Supabase local state
+.supabase/
+supabase/.branches/
+supabase/.temp/
+
+# Test and coverage output
+coverage/
+.nyc_output/
+
+# Temporary files
+tmp/
+temp/
+*.tmp

@@ -1,0 +1,23 @@
+{
+  "name": "superior-consultation-aira-ai",
+  "version": "1.0.0",
+  "description": "AIRA AI receptionist for Superior Consultation, LLC",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "tunnel": "npx ngrok http 3000"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.24.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "twilio": "^5.2.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

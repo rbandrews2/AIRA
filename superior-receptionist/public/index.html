@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>AIRA AI | Superior Consultation</title>
+  <meta name="description" content="AIRA AI call assistant and receptionist console for Superior Consultation, LLC." />
+  <meta name="theme-color" content="#242424" />
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <link rel="apple-touch-icon" href="/icons/icon-180.png" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="office-atmosphere" aria-hidden="true">
+    <div class="office-light light-a"></div>
+    <div class="office-light light-b"></div>
+    <img class="aira-ambient ambient-a" src="/assets/aira-transparent-1.png" alt="" />
+    <img class="aira-ambient ambient-b" src="/assets/aira-transparent-2.png" alt="" />
+  </div>
+
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="AIRA AI home">
+        <img src="/assets/aira-favicon.png" alt="" />
+        <span>
+          <strong>AIRA AI</strong>
+          <small>Superior Consultation, LLC</small>
+        </span>
+      </a>
+      <div class="status">
+        <span class="status-dot"></span>
+        <span id="connectionLabel">Local mode</span>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <section class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">Call assistant now. Smartphone OS roadmap next.</p>
+          <h1>AIRA AI handles receptionist work with permission-first controls.</h1>
+          <p>
+            AIRA answers for Superior Consultation, explains Work Zone OS, takes messages,
+            prepares transcripts, and keeps every sensitive capability visible to the operator.
+          </p>
+        </div>
+        <aside class="hero-card">
+          <img src="/assets/aira-install.png" alt="AIRA AI portrait" />
+          <div>
+            <span>Install profile</span>
+            <strong>Full featured PWA</strong>
+          </div>
+        </aside>
+      </section>
+
+      <section id="installPanel" class="install-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Install and permissions</p>
+            <h2>AIRA setup guard</h2>
+          </div>
+          <button id="dismissInstallPanel" class="ghost" type="button">Hide</button>
+        </div>
+
+        <div class="permission-grid">
+          <div class="permission-row" data-permission="camera">
+            <span>Camera / video</span>
+            <strong id="permCamera">Not requested</strong>
+          </div>
+          <div class="permission-row" data-permission="microphone">
+            <span>Microphone</span>
+            <strong id="permMicrophone">Not requested</strong>
+          </div>
+          <div class="permission-row native-only">
+            <span>Appear on top</span>
+            <strong>Native Android required</strong>
+          </div>
+          <div class="permission-row native-only">
+            <span>Alter system settings</span>
+            <strong>Native Android required</strong>
+          </div>
+          <div class="permission-row native-only">
+            <span>Device admin</span>
+            <strong>Native Android required</strong>
+          </div>
+          <div class="permission-row native-only">
+            <span>Call answer / end / transfer / record</span>
+            <strong>Telephony or native role</strong>
+          </div>
+        </div>
+
+        <label class="consent-line">
+          <input id="operatorConsent" type="checkbox" />
+          <span>I grant supported browser permissions and understand OS-level permissions require native Android/iOS or telephony-provider approval.</span>
+        </label>
+
+        <div class="install-actions">
+          <button id="grantPermissionsBtn" type="button">Grant supported permissions</button>
+          <button id="installAppBtn" type="button" disabled>Install AIRA</button>
+          <button id="stopInstallBtn" class="danger" type="button">No, stop install</button>
+        </div>
+      </section>
+
+      <nav class="tabs" aria-label="AIRA sections">
+        <button class="active" data-tab="console" type="button">Console</button>
+        <button data-tab="training" type="button">Training</button>
+        <button data-tab="messages" type="button">Messages</button>
+        <button data-tab="data" type="button">Data Safety</button>
+        <button data-tab="architecture" type="button">Roadmap</button>
+      </nav>
+
+      <section id="console" class="tab-panel active">
+        <div class="grid two">
+          <article class="panel">
+            <div class="panel-heading">
+              <h3>Live Readiness</h3>
+              <button id="refreshBtn" class="ghost" type="button">Refresh</button>
+            </div>
+            <div class="metrics">
+              <div><strong id="activeCalls">0</strong><span>Active calls</span></div>
+              <div><strong id="totalCalls">0</strong><span>Call records</span></div>
+              <div><strong id="messageCount">0</strong><span>Messages</span></div>
+            </div>
+            <div id="activeCallList" class="empty">No active calls are connected.</div>
+          </article>
+
+          <article class="panel">
+            <h3>Voice And Connection</h3>
+            <label for="voiceSelect">Receptionist voice</label>
+            <select id="voiceSelect">
+              <option value="Polly.Joanna-Neural">Professional - Joanna</option>
+              <option value="Polly.Salli-Neural">Warm - Salli</option>
+              <option value="Polly.Amy-Neural">British - Amy</option>
+              <option value="Polly.Matthew-Neural">Direct - Matthew</option>
+              <option value="alice">Browser voice - local preview</option>
+            </select>
+            <label for="serverUrl">Server or Supabase Edge URL</label>
+            <input id="serverUrl" type="url" placeholder="https://your-domain.com" />
+            <div class="button-row">
+              <button id="saveServerBtn" type="button">Save</button>
+              <button id="speakBtn" class="ghost" type="button">Test voice</button>
+            </div>
+          </article>
+        </div>
+
+        <article class="panel">
+          <h3>Conversation Simulator</h3>
+          <div id="chatLog" class="chat-log"></div>
+          <form id="chatForm" class="chat-form">
+            <input id="callerText" autocomplete="off" placeholder="Type what a caller says..." />
+            <button type="submit">Send</button>
+          </form>
+        </article>
+      </section>
+
+      <section id="training" class="tab-panel">
+        <article class="panel">
+          <div class="panel-heading">
+            <h3>Programmable Knowledge</h3>
+            <button id="resetTrainingBtn" class="ghost" type="button">Reset</button>
+          </div>
+          <textarea id="trainingText" spellcheck="true"></textarea>
+          <button id="saveTrainingBtn" type="button">Save training</button>
+        </article>
+      </section>
+
+      <section id="messages" class="tab-panel">
+        <div class="grid two">
+          <article class="panel">
+            <h3>Take A Message</h3>
+            <form id="messageForm" class="stacked-form">
+              <input id="msgName" placeholder="Caller name" required />
+              <input id="msgContact" placeholder="Phone or email" required />
+              <textarea id="msgBody" placeholder="Message" required></textarea>
+              <select id="msgUrgency">
+                <option>Normal</option>
+                <option>High</option>
+                <option>Urgent</option>
+              </select>
+              <button type="submit">Save message</button>
+            </form>
+          </article>
+          <article class="panel">
+            <h3>Inbox</h3>
+            <div id="inboxList" class="list"></div>
+          </article>
+        </div>
+      </section>
+
+      <section id="data" class="tab-panel">
+        <article class="panel">
+          <h3>Data Safety Guards In This Build</h3>
+          <ul class="capability-list">
+            <li>Secrets stay on the server or Supabase Edge Function, never in browser code.</li>
+            <li>Recording is disabled by default and must include caller disclosure before activation.</li>
+            <li>Training versions, messages, calls, transcripts, and audit events have separate Supabase tables.</li>
+            <li>Supabase row-level security is enabled in the migration for owner-scoped access.</li>
+            <li>Service worker caching excludes `/api/` and `/voice/` traffic.</li>
+            <li>Netlify security headers are configured for frame, MIME, referrer, and permission policy protection.</li>
+          </ul>
+        </article>
+      </section>
+
+      <section id="architecture" class="tab-panel">
+        <article class="panel">
+          <h3>Capability Roadmap</h3>
+          <ul class="capability-list">
+            <li><strong>PWA:</strong> dashboard, install flow, training, messages, transcript review, browser media permissions.</li>
+            <li><strong>Telephony:</strong> company-number answering, transfers, hold music, SMS, recording after consent.</li>
+            <li><strong>Android companion:</strong> OS-approved call screening, overlay, settings, and device-admin flows.</li>
+            <li><strong>iOS companion:</strong> CallKit for AIRA-owned VoIP workflows.</li>
+            <li><strong>Future OS:</strong> AIRA as a full smart-phone operating layer built from native, carrier, and device AI components.</li>
+          </ul>
+          <p class="notice">
+            Project memory: AIRA is aimed first at call-assistant secretary duties, with a long-term plan to become a full AI smartphone operating system.
+            Super-user-style access must be requested transparently and granted by the user or phone operator through legitimate OS or carrier mechanisms.
+          </p>
+        </article>
+      </section>
+    </main>
+  </div>
+  <script src="/app.js" defer></script>
+</body>
+</html>
