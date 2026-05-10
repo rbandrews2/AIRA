@@ -54,6 +54,11 @@ PUBLIC_URL=https://your-public-url.example
 AIRA_VOICE=Polly.Joanna-Neural
 AIRA_TRANSFER_NUMBER=+15407970405
 AIRA_RECORD_CALLS=false
+
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+AIRA_OWNER_ID=your_supabase_auth_user_uuid
+AIRA_ASSISTANT_FUNCTION_URL=https://your-project.supabase.co/functions/v1/aira-assistant
 ```
 
 Do not commit `.env`. Keep production secrets in server environment variables or Supabase secrets.
