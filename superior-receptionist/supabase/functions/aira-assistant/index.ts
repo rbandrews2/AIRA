@@ -11,6 +11,7 @@ type AssistantRequest = {
   owner_id?: string;
   caller_text?: string;
   call_id?: string;
+  history?: Array<{ role?: string; content?: string; text?: string }>;
 };
 
 serve(async (req) => {
@@ -40,7 +41,7 @@ serve(async (req) => {
     training = data?.prompt || training;
   }
 
-  const reply = localReply(callerText, training);
+  const reply = localReply(callerText, training, payload.history || []);
 
   if (supabase && payload.call_id) {
     await supabase.from("aira_call_turns").insert([
@@ -59,24 +60,31 @@ function json(body: unknown, status = 200) {
   });
 }
 
-function localReply(text: string, training: string) {
+function localReply(text: string, training: string, history: Array<{ role?: string; content?: string; text?: string }>) {
   const lower = text.toLowerCase();
+  const previous = history.map((turn) => `${turn.role || ""}: ${turn.content || turn.text || ""}`).join(" ").toLowerCase();
+  if ((lower.includes("yes") || lower.includes("sure") || lower.includes("correct")) && previous.includes("what are you trying")) {
+    return "Great. What name, number, email, and business should I include?";
+  }
+  if (lower.includes("i need") || lower.includes("we need") || lower.includes("looking for") || lower.includes("want to build")) {
+    return "I can route that. Is it a new app, existing system, or Work Zone OS?";
+  }
   if (lower.includes("price") || lower.includes("cost")) {
-    return "Our prices range from $9.99 to $4500 depending on the product, service, and personnel needed. I can collect your details and route you to the right person.";
+    return "Pricing ranges from $9.99 to $4500. What are you trying to launch or improve?";
   }
   if (lower.includes("work zone") || lower.includes("desk-less") || lower.includes("deskless")) {
-    return "Work Zone OS is the operating system for desk-less workers. It helps mobile teams coordinate field work, communication, and operations.";
+    return "Work Zone OS supports desk-less crews. Are you focused on dispatch, job tracking, or communication?";
   }
   if (lower.includes("email") || lower.includes("contact") || lower.includes("phone")) {
     return "Corporate inquiries can email info@superiorllc.org. Everyone else can email ray@workzoneos.org, or call 540-797-0405 or 844-685-7207 toll free.";
   }
   if (lower.includes("message") || lower.includes("callback") || lower.includes("call back")) {
-    return "I can take a message. Please share your name, best contact method, business name, and the reason for your call.";
+    return "Sure thing. What's your name, number, email, business, and message?";
   }
   if (training.toLowerCase().includes("young professionals")) {
-    return "Superior Consultation builds applications for ambitious professionals and businesses on the go. Tell me what you are trying to launch or improve, and I will help route you.";
+    return "Superior Consultation builds apps for ambitious businesses. What are you trying to launch or improve?";
   }
-  return "Superior Consultation consults and develops applications. Tell me what you need, and I will help route your call.";
+  return "I can take a message, discuss Work Zone OS, or route support. What do you need handled?";
 }
 
 function screenCall(text: string) {
@@ -90,5 +98,5 @@ function screenCall(text: string) {
 }
 
 function defaultTraining() {
-  return "AIRA AI works for Superior Consultation, LLC. The company consults and develops applications and is home to Work Zone OS - The operating system for desk-less workers.";
+  return "AIRA is the upbeat, professional receptionist for Superior Consultation, LLC. Collect caller name, number, email, business, and message. Keep replies under 20 words.";
 }

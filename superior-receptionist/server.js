@@ -49,6 +49,7 @@ app.post("/voice/incoming", async (req, res) => {
     transcript: [],
     pendingMessage: {},
     dbCallId: null,
+    memory: {},
   };
 
   call.dbCallId = await createSupabaseCall(callSid, call);
@@ -60,7 +61,7 @@ app.post("/voice/incoming", async (req, res) => {
   }
   twiml.say(
     { voice: store.settings.voice || DEFAULT_VOICE, language: "en-US" },
-    "Thank you for calling Superior Consultation, LLC. This is AIRA AI. How may I help you today?"
+    "Thanks for calling Superior Consultation, LLC. This is AIRA. How can I help?"
   );
   appendGather(twiml);
   twiml.redirect("/voice/no-input");
@@ -167,10 +168,15 @@ app.get("/api/training", async (_req, res) => {
 });
 
 app.post("/api/messages", async (req, res) => {
+  const phone = String(req.body.phone || "").slice(0, 80);
+  const email = String(req.body.email || "").slice(0, 120);
   const message = {
     id: req.body.id || cryptoId(),
     name: String(req.body.name || "Unknown").slice(0, 120),
-    contact: String(req.body.contact || "").slice(0, 160),
+    phone,
+    email,
+    business_name: String(req.body.business_name || req.body.business || "").slice(0, 160),
+    contact: String(req.body.contact || [phone, email].filter(Boolean).join(" | ")).slice(0, 220),
     body: String(req.body.body || req.body.message || "").slice(0, 2000),
     urgency: String(req.body.urgency || "Normal").slice(0, 24),
     created_at: req.body.created_at || new Date().toISOString(),
@@ -219,7 +225,7 @@ async function getAssistantReply(call, speech) {
   const edgeReply = await getEdgeAssistantReply(call, speech);
   if (edgeReply) return edgeReply;
 
-  if (!anthropic) return { reply: localReply(speech), persistedByEdge: false };
+  if (!anthropic) return { reply: localReply(speech, call), persistedByEdge: false };
 
   try {
     const messages = call.transcript
@@ -229,15 +235,15 @@ async function getAssistantReply(call, speech) {
 
     const response = await anthropic.messages.create({
       model: process.env.ANTHROPIC_MODEL || "claude-3-5-sonnet-20241022",
-      max_tokens: 180,
+      max_tokens: 90,
       system: store.training,
       messages,
     });
 
-    return { reply: response.content?.[0]?.text || localReply(speech), persistedByEdge: false };
+    return { reply: response.content?.[0]?.text || localReply(speech, call), persistedByEdge: false };
   } catch (error) {
     console.error("AIRA AI provider error:", error.message);
-    return { reply: localReply(speech), persistedByEdge: false };
+    return { reply: localReply(speech, call), persistedByEdge: false };
   }
 }
 
@@ -256,6 +262,10 @@ async function getEdgeAssistantReply(call, speech) {
         owner_id: AIRA_OWNER_ID || undefined,
         caller_text: speech,
         call_id: call.dbCallId || undefined,
+        history: call.transcript.slice(-8).map((turn) => ({
+          role: turn.role,
+          content: turn.content,
+        })),
       }),
     });
 
@@ -269,21 +279,48 @@ async function getEdgeAssistantReply(call, speech) {
   }
 }
 
-function localReply(speech) {
+function localReply(speech, call = {}) {
   const lower = speech.toLowerCase();
+  const memory = call.memory || {};
+  updateCallMemory(memory, speech);
+
+  if (memory.pending === "contact" && looksLikeContact(speech)) {
+    memory.contact = speech;
+    memory.pending = null;
+    return "Got it. I have your details and message. I will route this to the right person.";
+  }
+
+  if (isAffirmative(lower) && memory.pending === "details") {
+    memory.pending = "contact";
+    return "Great. What name, number, email, and business should I include?";
+  }
+
+  if (lower.includes("i need") || lower.includes("we need") || lower.includes("looking for") || lower.includes("want to build")) {
+    memory.intent = speech;
+    memory.pending = "details";
+    return "I can route that. Is it a new app, existing system, or Work Zone OS?";
+  }
+
   if (lower.includes("price") || lower.includes("cost")) {
-    return "Our prices range from $9.99 to $4500 depending on the product, service, and personnel needed. I can collect a few details and route you to the right person.";
+    memory.pending = "details";
+    return "Pricing ranges from $9.99 to $4500. What are you trying to launch or improve?";
   }
   if (lower.includes("work zone") || lower.includes("desk-less") || lower.includes("deskless")) {
-    return "Work Zone OS is our operating system for desk-less workers. It helps mobile crews and teams coordinate field work from one operational hub.";
+    memory.intent = "Work Zone OS";
+    return "Work Zone OS supports desk-less crews. Are you focused on dispatch, job tracking, or communication?";
   }
   if (lower.includes("contact") || lower.includes("email") || lower.includes("phone")) {
     return "Corporate inquiries can email info@superiorllc.org. Everyone else can email ray@workzoneos.org, or call 540-797-0405 or 844-685-7207 toll free.";
   }
   if (lower.includes("message") || lower.includes("callback") || lower.includes("call back")) {
-    return "I can take a message. Please give me your name, best contact information, business name, and the reason for your call.";
+    memory.pending = "contact";
+    return "Sure thing. What's your name, number, email, business, and message?";
   }
-  return "Superior Consultation consults and develops applications for growing businesses. Tell me what you need built or solved, and I will help route the conversation.";
+  if (memory.intent && !memory.contact) {
+    memory.pending = "contact";
+    return `Got it, ${memory.intent}. Who should we contact, and what number or email should we use?`;
+  }
+  return "I can take a message, discuss Work Zone OS, or route support. What do you need handled?";
 }
 
 function screenCall(text, fallback) {
@@ -303,6 +340,9 @@ async function maybeCaptureMessage(call, speech) {
     id: cryptoId(),
     name: "Phone caller",
     contact: call.caller,
+    phone: call.caller,
+    email: "",
+    business_name: "",
     body: speech,
     urgency: lower.includes("urgent") ? "Urgent" : "Normal",
     created_at: new Date().toISOString(),
@@ -403,6 +443,7 @@ async function persistSupabaseMessage(message) {
     owner_id: AIRA_OWNER_ID,
     caller_name: message.name || "Unknown",
     caller_contact: message.contact || "",
+    business_name: message.business_name || "",
     message_body: message.body || "",
     urgency: normalizeUrgency(message.urgency),
     source: "aira",
@@ -499,6 +540,8 @@ async function getSupabaseMessages() {
     id: message.id,
     name: message.caller_name,
     contact: message.caller_contact,
+    phone: extractPhone(message.caller_contact),
+    email: extractEmail(message.caller_contact),
     business_name: message.business_name,
     body: message.message_body,
     urgency: message.urgency,
@@ -547,6 +590,30 @@ function summarizeTranscript(transcript) {
     .slice(0, 2000);
 }
 
+function updateCallMemory(memory, speech) {
+  const lower = speech.toLowerCase();
+  if (lower.includes("app")) memory.intent = "application development";
+  if (lower.includes("work zone") || lower.includes("desk-less") || lower.includes("deskless")) memory.intent = "Work Zone OS";
+  if (lower.includes("support") || lower.includes("bug") || lower.includes("broken")) memory.intent = "technical support";
+  if (looksLikeContact(speech)) memory.contact = speech;
+}
+
+function looksLikeContact(text) {
+  return /@/.test(text) || /\d{3}[-.\s]?\d{3}[-.\s]?\d{4}/.test(text);
+}
+
+function extractPhone(value) {
+  return String(value || "").match(/\+?\d[\d().\-\s]{7,}\d/)?.[0]?.trim() || "";
+}
+
+function extractEmail(value) {
+  return String(value || "").match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)?.[0] || "";
+}
+
+function isAffirmative(lower) {
+  return ["yes", "yeah", "yep", "sure", "correct", "that is right", "please"].some((word) => lower.includes(word));
+}
+
 function loadStore() {
   fs.mkdirSync(DATA_DIR, { recursive: true });
   if (fs.existsSync(DATA_FILE)) {
@@ -566,13 +633,13 @@ function persistStore() {
 }
 
 function defaultTraining() {
-  return `You are AIRA AI, the professional secretary and receptionist for Superior Consultation, LLC.
-Superior Consultation consults and develops applications. Superior Consultation is home to Work Zone OS - The operating system for desk-less workers.
+  return `You are AIRA, the upbeat, professional, polite receptionist for Superior Consultation, LLC.
+Superior Consultation consults and develops applications. Superior Consultation is home to Work Zone OS - The operating system for desk-less road crews and field teams.
 Prices range from $9.99 to $4500 depending on the specific product and personnel.
 Corporate email is info@superiorllc.org. Everyone else can email ray@workzoneos.org.
 Phone numbers are 540-797-0405 and 844-685-7207 toll free.
-AIRA AI is currently a call assistant with secretary-like duties. The long-term plan is to develop AIRA into a full AI smart phone operating system through legitimate native, carrier, telephony, and device AI integrations.
-Keep responses short, warm, and natural. Ask one question at a time. Take messages when needed.`;
+AIRA answers calls, determines caller intent, takes messages, and collects caller name, contact number, email address, business represented, and message when available.
+Keep responses under 20 words when possible. Use contractions. Ask one question at a time. Avoid AI cliches.`;
 }
 
 function cryptoId() {

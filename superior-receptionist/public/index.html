@@ -140,6 +140,7 @@
               <button id="saveServerBtn" type="button">Save</button>
               <button id="speakBtn" class="ghost" type="button">Test voice</button>
             </div>
+            <p id="connectionStatus" class="action-status" role="status"></p>
           </article>
         </div>
 
@@ -161,6 +162,7 @@
           </div>
           <textarea id="trainingText" spellcheck="true"></textarea>
           <button id="saveTrainingBtn" type="button">Save training</button>
+          <p id="trainingStatus" class="action-status" role="status"></p>
         </article>
       </section>
 
@@ -170,7 +172,9 @@
             <h3>Take A Message</h3>
             <form id="messageForm" class="stacked-form">
               <input id="msgName" placeholder="Caller name" required />
-              <input id="msgContact" placeholder="Phone or email" required />
+              <input id="msgPhone" type="tel" placeholder="Contact number" />
+              <input id="msgEmail" type="email" placeholder="Email address" />
+              <input id="msgBusiness" placeholder="Business represented" />
               <textarea id="msgBody" placeholder="Message" required></textarea>
               <select id="msgUrgency">
                 <option>Normal</option>
@@ -178,11 +182,15 @@
                 <option>Urgent</option>
               </select>
               <button type="submit">Save message</button>
+              <p id="messageStatus" class="action-status" role="status"></p>
             </form>
           </article>
           <article class="panel">
             <h3>Inbox</h3>
             <div id="inboxList" class="list"></div>
+            <section id="callerDetail" class="caller-detail empty" aria-live="polite">
+              Select a caller to view their details.
+            </section>
           </article>
         </div>
       </section>
@@ -219,6 +227,12 @@
       </section>
     </main>
   </div>
+  <div id="updateBanner" class="update-banner" role="status" aria-live="polite" hidden>
+    <span>AIRA update available.</span>
+    <button id="applyUpdateBtn" type="button">Update now</button>
+    <button id="dismissUpdateBtn" class="ghost" type="button">Later</button>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script src="/app.js" defer></script>
 </body>
 </html>
