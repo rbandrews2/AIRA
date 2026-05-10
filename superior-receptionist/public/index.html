@@ -6,9 +6,14 @@
   <title>AIRA AI | Superior Consultation</title>
   <meta name="description" content="AIRA AI call assistant and receptionist console for Superior Consultation, LLC." />
   <meta name="theme-color" content="#242424" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="AIRA AI" />
   <link rel="manifest" href="/manifest.json" />
   <link rel="icon" type="image/png" href="/favicon.png" />
   <link rel="apple-touch-icon" href="/icons/icon-180.png" />
+  <link rel="preload" href="/styles.css" as="style" />
+  <link rel="preload" href="/app.js" as="script" />
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
@@ -29,7 +34,7 @@
         </span>
       </a>
       <div class="status">
-        <span class="status-dot"></span>
+        <span id="connectionDot" class="status-dot offline"></span>
         <span id="connectionLabel">Local mode</span>
       </div>
     </header>
@@ -134,8 +139,8 @@
               <option value="Polly.Matthew-Neural">Direct - Matthew</option>
               <option value="alice">Browser voice - local preview</option>
             </select>
-            <label for="serverUrl">Server or Supabase Edge URL</label>
-            <input id="serverUrl" type="url" placeholder="https://your-domain.com" />
+            <label for="serverUrl">Dashboard backend URL</label>
+            <input id="serverUrl" type="url" placeholder="https://your-render-service.onrender.com" />
             <div class="button-row">
               <button id="saveServerBtn" type="button">Save</button>
               <button id="speakBtn" class="ghost" type="button">Test voice</button>

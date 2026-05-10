@@ -31,6 +31,7 @@ For urgent sales, technical, billing, or partnership issues, collect name, best 
 
 const state = {
   serverUrl: localStorage.getItem("aira_server_url") || "",
+  connectionState: localStorage.getItem("aira_server_url") ? "saved" : "local",
   training: localStorage.getItem("aira_training") || DEFAULT_TRAINING,
   voice: localStorage.getItem("aira_voice") || "Polly.Joanna-Neural",
   messages: JSON.parse(localStorage.getItem("aira_messages") || "[]"),
@@ -69,7 +70,7 @@ function bindElements() {
     "totalCalls", "activeCalls", "activeCallList", "chatLog", "chatForm",
     "callerText", "messageForm", "inboxList", "operatorConsent", "installAppBtn",
     "permCamera", "permMicrophone", "connectionStatus", "trainingStatus", "messageStatus",
-    "toast", "updateBanner", "applyUpdateBtn", "dismissUpdateBtn", "callerDetail"
+    "toast", "updateBanner", "applyUpdateBtn", "dismissUpdateBtn", "callerDetail", "connectionDot"
   ].forEach((id) => { els[id] = document.getElementById(id); });
 }
 
@@ -124,28 +125,53 @@ function switchTab(tabName) {
 async function saveServer() {
   state.serverUrl = els.serverUrl.value.trim().replace(/\/$/, "");
   localStorage.setItem("aira_server_url", state.serverUrl);
-  updateConnectionLabel();
   if (!state.serverUrl) {
+    updateConnectionLabel("local");
     setStatus(els.connectionStatus, "Saved local mode. Add a server URL when you want live call data.", "success");
     showToast("Server connection saved for local mode.", "success");
     refreshStatus();
     return;
   }
 
+  if (isSupabaseFunctionUrl(state.serverUrl)) {
+    updateConnectionLabel("function");
+    setStatus(
+      els.connectionStatus,
+      "That is a Supabase assistant function URL. It can power AIRA replies, but this dashboard needs the Render web service URL for live status, messages, and training sync.",
+      "error"
+    );
+    showToast("Use the Render web service URL for dashboard connection.", "error");
+    renderInbox();
+    return;
+  }
+
+  updateConnectionLabel("checking");
   setStatus(els.connectionStatus, "Checking server connection...", "");
-  const ok = await refreshStatus();
-  await refreshMessages();
-  if (ok) {
+  const statusOk = await refreshStatus();
+  const messagesOk = await refreshMessages();
+  if (statusOk && messagesOk) {
+    updateConnectionLabel("connected");
     setStatus(els.connectionStatus, "Connected. AIRA can read live backend status.", "success");
     showToast("Server connection saved.", "success");
   } else {
-    setStatus(els.connectionStatus, "Connection failed. Check the server URL, HTTPS, and whether the backend is running.", "error");
+    updateConnectionLabel("error");
+    setStatus(els.connectionStatus, "Connection failed. Use the Render web service base URL, and make sure it allows browser API requests.", "error");
     showToast("Connection failed. Check the server URL and backend.", "error");
   }
 }
 
-function updateConnectionLabel() {
-  els.connectionLabel.textContent = state.serverUrl ? "Connected target saved" : "Local mode";
+function updateConnectionLabel(status = state.connectionState) {
+  state.connectionState = status;
+  const labels = {
+    local: "Local mode",
+    saved: "Backend URL saved",
+    checking: "Checking backend",
+    connected: "Backend connected",
+    function: "Assistant function URL",
+    error: "Backend not connected",
+  };
+  els.connectionLabel.textContent = labels[status] || labels.local;
+  els.connectionDot.className = `status-dot ${status}`;
 }
 
 function saveVoice() {
@@ -158,6 +184,7 @@ function saveVoice() {
 
 async function refreshStatus() {
   if (!state.serverUrl) {
+    updateConnectionLabel("local");
     els.activeCalls.textContent = "0";
     els.totalCalls.textContent = String(state.calls.length);
     els.messageCount.textContent = String(state.messages.length);
@@ -165,7 +192,15 @@ async function refreshStatus() {
     return true;
   }
 
+  if (isSupabaseFunctionUrl(state.serverUrl)) {
+    updateConnectionLabel("function");
+    els.activeCalls.textContent = "0";
+    els.activeCallList.textContent = "Supabase assistant function saved. Use the Render web service URL for dashboard live status.";
+    return false;
+  }
+
   try {
+    updateConnectionLabel("checking");
     const data = await fetchJson(`${state.serverUrl}/api/status`);
     els.activeCalls.textContent = String(data.activeCalls?.length || 0);
     els.totalCalls.textContent = String(data.callLogCount || 0);
@@ -173,8 +208,10 @@ async function refreshStatus() {
     els.activeCallList.innerHTML = data.activeCalls?.length
       ? data.activeCalls.map((call) => `<div class="list-item"><strong>${escapeHtml(call.caller)}</strong><span>${escapeHtml(call.screened || "Screening")}</span>${escapeHtml(call.lastMessage || "")}</div>`).join("")
       : "No active calls are connected.";
+    updateConnectionLabel("connected");
     return true;
   } catch {
+    updateConnectionLabel(isSupabaseFunctionUrl(state.serverUrl) ? "function" : "error");
     els.activeCallList.textContent = "Server is not reachable from this browser.";
     return false;
   }
@@ -186,6 +223,11 @@ async function refreshMessages() {
     return true;
   }
 
+  if (isSupabaseFunctionUrl(state.serverUrl)) {
+    renderInbox();
+    return false;
+  }
+
   try {
     const messages = await fetchJson(`${state.serverUrl}/api/messages`);
     state.messages = messages.map(normalizeMessage);
@@ -194,6 +236,15 @@ async function refreshMessages() {
     return true;
   } catch {
     renderInbox();
+    return false;
+  }
+}
+
+function isSupabaseFunctionUrl(value) {
+  try {
+    const url = new URL(value);
+    return url.hostname.includes("supabase.co") && url.pathname.includes("/functions/v1/");
+  } catch {
     return false;
   }
 }
@@ -275,13 +326,23 @@ function resetTraining() {
   saveTraining();
 }
 
-function simulateConversation(event) {
+async function simulateConversation(event) {
   event.preventDefault();
   const text = els.callerText.value.trim();
   if (!text) return;
   addChat("user", text);
   els.callerText.value = "";
-  addChat("assistant", getLocalAssistantReply(text));
+
+  if (state.serverUrl) {
+    try {
+      const data = await postJson("/api/simulate", { text, history: state.chat.slice(-12) });
+      addChat("assistant", data.reply || getLocalAssistantReply(text));
+    } catch {
+      addChat("assistant", getLocalAssistantReply(text));
+    }
+  } else {
+    addChat("assistant", getLocalAssistantReply(text));
+  }
 }
 
 function renderChat() {
@@ -471,19 +532,32 @@ function speakPreview() {
 
 async function postJson(path, body) {
   if (!state.serverUrl) throw new Error("no server URL configured");
-  const res = await fetch(`${state.serverUrl}${path}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error(`server returned ${res.status}`);
-  return res.json();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+  try {
+    const res = await fetch(`${state.serverUrl}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+    if (!res.ok) throw new Error(`server returned ${res.status}`);
+    return res.json();
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 async function fetchJson(url) {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`server returned ${res.status}`);
-  return res.json();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    if (!res.ok) throw new Error(`server returned ${res.status}`);
+    return res.json();
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 function setStatus(target, message, type) {

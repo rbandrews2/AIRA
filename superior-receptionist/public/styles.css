@@ -104,6 +104,7 @@ label {
   filter: blur(34px);
   opacity: 0.18;
   transform: rotate(12deg);
+  will-change: transform, opacity;
 }
 
 .light-a { left: 7vw; top: 7vh; background: #d9e8ff; animation: officeSweep 16s ease-in-out infinite; }
@@ -115,6 +116,7 @@ label {
   opacity: 0.16;
   filter: drop-shadow(0 20px 60px rgba(0, 0, 0, 0.8));
   transform-origin: center;
+  will-change: transform;
 }
 
 .ambient-a {
@@ -191,6 +193,26 @@ label {
   width: 10px;
   height: 10px;
   border-radius: 999px;
+  background: var(--green);
+  box-shadow: 0 0 18px rgba(53, 201, 121, 0.75);
+}
+
+.status-dot.local, .status-dot.saved, .status-dot.offline {
+  background: var(--soft);
+  box-shadow: none;
+}
+
+.status-dot.checking, .status-dot.function {
+  background: var(--gold);
+  box-shadow: 0 0 18px rgba(215, 166, 74, 0.6);
+}
+
+.status-dot.error {
+  background: var(--danger);
+  box-shadow: 0 0 18px rgba(255, 92, 92, 0.58);
+}
+
+.status-dot.connected {
   background: var(--green);
   box-shadow: 0 0 18px rgba(53, 201, 121, 0.75);
 }
@@ -350,7 +372,7 @@ h3 { font-size: 18px; margin-bottom: 14px; }
 }
 
 .tab-panel { display: none; }
-.tab-panel.active { display: block; }
+.tab-panel.active { display: block; contain: content; }
 
 .grid {
   display: grid;
@@ -528,6 +550,7 @@ h3 { font-size: 18px; margin-bottom: 14px; }
   color: var(--ink);
   padding: 12px 14px;
   transition: opacity 0.18s ease, transform 0.18s ease;
+  will-change: transform, opacity;
 }
 
 .toast.show {

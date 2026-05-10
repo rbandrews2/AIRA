@@ -1,4 +1,4 @@
-const CACHE_NAME = "aira-ai-v3";
+const CACHE_NAME = "aira-ai-v5";
 const STATIC_ASSETS = [
   "/",
   "/index.html",
@@ -10,7 +10,14 @@ const STATIC_ASSETS = [
   "/assets/aira-install.png",
   "/assets/aira-transparent-1.png",
   "/assets/aira-transparent-2.png",
+  "/icons/icon-72.png",
+  "/icons/icon-96.png",
+  "/icons/icon-128.png",
+  "/icons/icon-144.png",
+  "/icons/icon-152.png",
+  "/icons/icon-180.png",
   "/icons/icon-192.png",
+  "/icons/icon-384.png",
   "/icons/icon-512.png",
 ];
 
@@ -38,6 +45,8 @@ self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
 
   const url = new URL(event.request.url);
+  if (url.origin !== self.location.origin) return;
+
   if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/voice/")) {
     event.respondWith(fetch(event.request));
     return;
@@ -60,8 +69,11 @@ async function networkFirst(request, fallbackUrl = null) {
   } catch {
     const cached = await cache.match(request);
     if (cached) return cached;
-    if (fallbackUrl) return cache.match(fallbackUrl);
-    throw new Error("Offline and no cached response is available.");
+    if (fallbackUrl) {
+      const fallback = await cache.match(fallbackUrl);
+      if (fallback) return fallback;
+    }
+    return new Response("Offline", { status: 503, statusText: "Service Unavailable" });
   }
 }
 

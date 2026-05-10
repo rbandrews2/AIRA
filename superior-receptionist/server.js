@@ -30,6 +30,14 @@ const supabase = process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_K
 const store = loadStore();
 const activeCalls = new Map();
 
+app.use((req, res, next) => {
+  res.setHeader("Access-Control-Allow-Origin", process.env.AIRA_ALLOWED_ORIGIN || "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  if (req.method === "OPTIONS") return res.sendStatus(204);
+  next();
+});
+
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json({ limit: "1mb" }));
 app.use(express.static(path.join(__dirname, "public")));
@@ -202,6 +210,33 @@ app.post("/api/settings/voice", (req, res) => {
   store.settings.voice = String(req.body.voice || DEFAULT_VOICE);
   persistStore();
   res.json({ ok: true, voice: store.settings.voice });
+});
+
+app.post("/api/simulate", async (req, res) => {
+  const text = String(req.body.text || "").slice(0, 500);
+  if (!text) return res.status(400).json({ error: "text is required" });
+
+  if (anthropic) {
+    try {
+      const history = Array.isArray(req.body.history) ? req.body.history : [];
+      const messages = history
+        .filter((turn) => turn.role === "user" || turn.role === "assistant")
+        .slice(-12)
+        .map((turn) => ({ role: turn.role, content: String(turn.text || turn.content || "") }));
+      messages.push({ role: "user", content: text });
+
+      const response = await anthropic.messages.create({
+        model: process.env.ANTHROPIC_MODEL || "claude-3-5-sonnet-20241022",
+        max_tokens: 90,
+        system: store.training,
+        messages,
+      });
+      return res.json({ reply: response.content?.[0]?.text || localReply(text) });
+    } catch (error) {
+      console.error("Simulate AI error:", error.message);
+    }
+  }
+  res.json({ reply: localReply(text) });
 });
 
 app.use((_req, res) => res.status(404).json({ error: "Not found" }));
@@ -643,5 +678,6 @@ Keep responses under 20 words when possible. Use contractions. Ask one question 
 }
 
 function cryptoId() {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
