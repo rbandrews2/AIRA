@@ -1,4 +1,5 @@
 [build]
+ command = "# static site, no build needed"
   publish = "public"
 
 [[headers]]
