@@ -37,6 +37,7 @@ const state = {
   messages: JSON.parse(localStorage.getItem("aira_messages") || "[]"),
   calls: JSON.parse(localStorage.getItem("aira_calls") || "[]"),
   installPrompt: null,
+  installCompleted: localStorage.getItem("aira_install_completed") === "true",
   waitingWorker: null,
   refreshingForUpdate: false,
   chat: [],
@@ -61,7 +62,19 @@ document.addEventListener("DOMContentLoaded", () => {
 window.addEventListener("beforeinstallprompt", (event) => {
   event.preventDefault();
   state.installPrompt = event;
-  document.getElementById("installAppBtn").textContent = "Install AIRA";
+  state.installCompleted = false;
+  localStorage.removeItem("aira_install_completed");
+  if (els.installAppBtn) els.installAppBtn.textContent = "Install AIRA";
+  updateInstallPanel();
+});
+
+window.addEventListener("appinstalled", () => {
+  state.installPrompt = null;
+  state.installCompleted = true;
+  localStorage.setItem("aira_install_completed", "true");
+  localStorage.removeItem("aira_install_stopped");
+  updateInstallPanel();
+  if (els.toast) showToast("AIRA is installed.", "success");
 });
 
 function bindElements() {
@@ -70,7 +83,8 @@ function bindElements() {
     "totalCalls", "activeCalls", "activeCallList", "chatLog", "chatForm",
     "callerText", "messageForm", "inboxList", "operatorConsent", "installAppBtn",
     "permCamera", "permMicrophone", "connectionStatus", "trainingStatus", "messageStatus",
-    "toast", "updateBanner", "applyUpdateBtn", "dismissUpdateBtn", "callerDetail", "connectionDot"
+    "toast", "updateBanner", "applyUpdateBtn", "dismissUpdateBtn", "callerDetail", "connectionDot",
+    "installPanel"
   ].forEach((id) => { els[id] = document.getElementById(id); });
 }
 
@@ -88,7 +102,7 @@ function bindEvents() {
   document.getElementById("installAppBtn").addEventListener("click", installApp);
   document.getElementById("stopInstallBtn").addEventListener("click", stopInstall);
   document.getElementById("dismissInstallPanel").addEventListener("click", () => {
-    document.getElementById("installPanel").hidden = true;
+    els.installPanel.hidden = true;
   });
   els.applyUpdateBtn.addEventListener("click", applyAppUpdate);
   els.dismissUpdateBtn.addEventListener("click", () => {
@@ -103,6 +117,13 @@ function bindEvents() {
     const button = event.target.closest("[data-message-id]");
     if (button) selectCaller(button.dataset.messageId);
   });
+
+  const displayMode = window.matchMedia?.("(display-mode: standalone)");
+  if (displayMode?.addEventListener) {
+    displayMode.addEventListener("change", updateInstallPanel);
+  } else if (displayMode?.addListener) {
+    displayMode.addListener(updateInstallPanel);
+  }
 }
 
 function hydrate() {
@@ -111,6 +132,7 @@ function hydrate() {
   els.voiceSelect.value = state.voice;
   updateConnectionLabel();
   updateInstallGate();
+  updateInstallPanel();
 }
 
 function switchTab(tabName) {
@@ -252,6 +274,7 @@ function isSupabaseFunctionUrl(value) {
 async function refreshPermissionState() {
   await setPermissionLabel("camera", els.permCamera);
   await setPermissionLabel("microphone", els.permMicrophone);
+  updateInstallPanel();
 }
 
 async function setPermissionLabel(name, target) {
@@ -294,8 +317,22 @@ async function installApp() {
   if (!els.operatorConsent.checked) return;
   if (state.installPrompt) {
     state.installPrompt.prompt();
-    await state.installPrompt.userChoice.catch(() => null);
+    const choice = await state.installPrompt.userChoice.catch(() => null);
     state.installPrompt = null;
+    if (choice?.outcome === "accepted") {
+      state.installCompleted = true;
+      localStorage.setItem("aira_install_completed", "true");
+      localStorage.removeItem("aira_install_stopped");
+      updateInstallPanel();
+      return;
+    }
+    updateInstallPanel();
+    return;
+  }
+  if (isInstalledApp()) {
+    state.installCompleted = true;
+    localStorage.setItem("aira_install_completed", "true");
+    updateInstallPanel();
     return;
   }
   alert("Use your browser menu to add AIRA AI to your home screen. Chrome and Edge usually show Install App; Safari uses Share, then Add to Home Screen.");
@@ -303,7 +340,35 @@ async function installApp() {
 
 function stopInstall() {
   localStorage.setItem("aira_install_stopped", new Date().toISOString());
-  document.getElementById("installPanel").hidden = true;
+  els.installPanel.hidden = true;
+}
+
+function updateInstallPanel() {
+  if (!els.installPanel) return;
+
+  if (isInstalledApp()) {
+    state.installCompleted = true;
+    localStorage.setItem("aira_install_completed", "true");
+  }
+
+  if (state.installCompleted) {
+    els.installPanel.hidden = true;
+    return;
+  }
+
+  const userStoppedInstall = Boolean(localStorage.getItem("aira_install_stopped"));
+  if (userStoppedInstall && !state.installPrompt) {
+    els.installPanel.hidden = true;
+    return;
+  }
+
+  els.installPanel.hidden = false;
+  els.installAppBtn.textContent = state.installPrompt ? "Install AIRA" : "Install manually";
+  updateInstallGate();
+}
+
+function isInstalledApp() {
+  return window.matchMedia?.("(display-mode: standalone)")?.matches || window.navigator.standalone === true;
 }
 
 async function saveTraining() {

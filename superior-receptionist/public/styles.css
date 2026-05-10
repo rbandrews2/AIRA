@@ -1,7 +1,7 @@
 :root {
   --bg: #141414;
-  --panel: rgba(42, 42, 42, 0.74);
-  --panel-strong: rgba(56, 56, 56, 0.9);
+  --panel: rgba(42, 42, 42, 0.56);
+  --panel-strong: rgba(56, 56, 56, 0.72);
   --line: rgba(255, 255, 255, 0.12);
   --ink: #f4f4f4;
   --muted: #b8bcc4;
@@ -238,7 +238,7 @@ label {
 }
 
 .hero-copy {
-  background: linear-gradient(135deg, rgba(47, 47, 47, 0.82), rgba(18, 18, 18, 0.66));
+  background: linear-gradient(135deg, rgba(47, 47, 47, 0.62), rgba(18, 18, 18, 0.44));
   padding: clamp(24px, 5vw, 48px);
 }
 
@@ -281,7 +281,7 @@ h3 { font-size: 18px; margin-bottom: 14px; }
 .hero-card div {
   position: absolute;
   inset: auto 14px 14px;
-  background: rgba(0, 0, 0, 0.48);
+  background: rgba(0, 0, 0, 0.36);
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 12px;
@@ -311,7 +311,7 @@ h3 { font-size: 18px; margin-bottom: 14px; }
 }
 
 .permission-row {
-  background: rgba(255, 255, 255, 0.055);
+  background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--line);
   border-radius: 8px;
   min-height: 86px;
@@ -361,7 +361,7 @@ h3 { font-size: 18px; margin-bottom: 14px; }
 }
 
 .tabs button {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.06);
   border-color: var(--line);
   color: var(--muted);
 }
@@ -389,7 +389,7 @@ h3 { font-size: 18px; margin-bottom: 14px; }
 }
 
 .metrics div, .empty, .notice, .list-item {
-  background: rgba(255, 255, 255, 0.055);
+  background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 14px;
@@ -413,7 +413,7 @@ h3 { font-size: 18px; margin-bottom: 14px; }
 }
 
 .chat-log {
-  background: rgba(0, 0, 0, 0.24);
+  background: rgba(0, 0, 0, 0.16);
   border: 1px solid var(--line);
   border-radius: 8px;
   display: flex;
@@ -457,7 +457,7 @@ h3 { font-size: 18px; margin-bottom: 14px; }
 .caller-row {
   width: 100%;
   min-height: auto;
-  background: rgba(255, 255, 255, 0.055);
+  background: rgba(255, 255, 255, 0.04);
   border-color: var(--line);
   color: var(--ink);
   padding: 14px;
@@ -473,7 +473,7 @@ h3 { font-size: 18px; margin-bottom: 14px; }
 .list-item span { color: var(--muted); display: block; font-size: 13px; margin: 2px 0 8px; }
 
 .caller-detail {
-  background: rgba(0, 0, 0, 0.22);
+  background: rgba(0, 0, 0, 0.16);
   border: 1px solid rgba(84, 199, 236, 0.22);
   border-radius: 8px;
   margin-top: 14px;

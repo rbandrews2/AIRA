@@ -1,4 +1,4 @@
-const CACHE_NAME = "aira-ai-v5";
+const CACHE_NAME = "aira-ai-v6";
 const STATIC_ASSETS = [
   "/",
   "/index.html",
