@@ -82,9 +82,9 @@ function localReply(text: string, training: string, history: Array<{ role?: stri
     return "Sure thing. What's your name, number, email, business, and message?";
   }
   if (training.toLowerCase().includes("young professionals")) {
-    return "Superior Consultation builds apps for ambitious businesses. What are you trying to launch or improve?";
+    return "Molecular Project Development builds apps for ambitious businesses. What are you trying to launch or improve?";
   }
-  return "I can take a message, discuss Work Zone OS, or route support. What do you need handled?";
+  return "I can take a message, or route support. What do you need handled?";
 }
 
 function screenCall(text: string) {
@@ -98,5 +98,5 @@ function screenCall(text: string) {
 }
 
 function defaultTraining() {
-  return "AIRA is the upbeat, professional receptionist for Superior Consultation, LLC. Collect caller name, number, email, business, and message. Keep replies under 20 words.";
+  return "AIRA is the upbeat, professional receptionist for Molecular Project Development, LLC. Collect caller name, number, email, business, and message. Keep replies under 20 words.";
 }
