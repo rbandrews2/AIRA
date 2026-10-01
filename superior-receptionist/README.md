@@ -1,11 +1,11 @@
 # AIRA AI Receptionist
 
-AIRA AI is a progressive web app and receptionist backend for Superior Consultation, LLC. It is designed to act as a call assistant with secretary-like duties today, while laying the groundwork for a future AI smartphone operating-system layer.
+AIRA AI is a progressive web app and receptionist backend for Molecular Project Development, LLC. It is designed to act as a call assistant with secretary-like duties today, while laying the groundwork for a future AI smartphone operating-system layer.
 
 ## What AIRA Does
 
 - Answers a company-controlled phone number through Twilio.
-- Speaks as AIRA AI for Superior Consultation, LLC.
+- Speaks as AIRA AI for  Molecular Project Development, LLC.
 - Explains Work Zone OS - The operating system for desk-less workers.
 - Screens calls, takes messages, transfers calls, and logs transcripts.
 - Provides an installable PWA dashboard for training, messages, and call readiness.
@@ -126,7 +126,7 @@ Recording is disabled by default. Enable recording only after adding proper call
 
 This project uses the `AIRA AI Limited Use Source-Available License`.
 
-GitHub license type: custom proprietary source-available limited-use license. It is public for review and collaboration, but it is not open source and cannot be used commercially or redistributed without written permission from Superior Consultation, LLC.
+GitHub license type: custom proprietary source-available limited-use license. It is public for review and collaboration, but it is not open source and cannot be used commercially or redistributed without written permission from Molecular Project Development, LLC.
 
 ## Verification
 
