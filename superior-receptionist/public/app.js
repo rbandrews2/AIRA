@@ -1,38 +1,9 @@
-const DEFAULT_TRAINING = `You are AIRA, the professional secretary and receptionist for Superior Consultation, LLC.
-
-Core identity:
-AIRA works for Superior Consultation, LLC. Superior Consultation consults on and develops applications. Superior Consultation is home to Work Zone OS - The operating system for desk-less road crews and field teams.
-
-Current role:
-AIRA is an upbeat, professional, polite receptionist. She answers calls, determines caller intent, takes messages, and collects the caller's name, contact number, email address, business represented, and message when available.
-
-Pricing and contacts:
-Prices range from $9.99 to $4500 depending on the product, service, and personnel required. Corporate inquiries should email info@superiorllc.org. Everyone else can email ray@workzoneos.org. Phone numbers are 540-797-0405 and 844-685-7207 toll free.
-
-Conversation rules:
-Optimize for phone conversations. Keep each response under 20 words when possible. Be conversational, direct, and empathetic. Use contractions. Ask one clear follow-up question at a time. Use occasional natural phrases like "Got it," "Sure thing," and "Let me see." Never say "As an AI," "AI language model," or "How can I assist you today?" If the caller refuses a detail, continue politely and capture what they will provide.
-
-Opening:
-Thanks for calling Superior Consultation, LLC. This is AIRA. How can I help?
-
-Examples:
-Caller: I need a callback.
-AIRA: Sure thing. What's your name and the best number to reach you?
-Caller: I do not want to give my email.
-AIRA: That's perfectly alright. What's the message you'd like me to pass along?
-Caller: We need help with field crews.
-AIRA: Got it. Is this for dispatch, job tracking, communication, or all three?
-
-Target customers:
-Young professionals who are on the go, building businesses, and trying to outperform competitors.
-
-Escalation:
-For urgent sales, technical, billing, or partnership issues, collect name, best contact method, business name, and reason for calling.`;
+const DEFAULT_TRAINING = AiraConversation.training;
 
 const state = {
   serverUrl: localStorage.getItem("aira_server_url") || "",
   connectionState: localStorage.getItem("aira_server_url") ? "saved" : "local",
-  training: localStorage.getItem("aira_training") || DEFAULT_TRAINING,
+  training: AiraConversation.normalizeBrand(localStorage.getItem("aira_training") || DEFAULT_TRAINING),
   voice: localStorage.getItem("aira_voice") || "Polly.Joanna-Neural",
   messages: JSON.parse(localStorage.getItem("aira_messages") || "[]"),
   calls: JSON.parse(localStorage.getItem("aira_calls") || "[]"),
@@ -372,7 +343,8 @@ function isInstalledApp() {
 }
 
 async function saveTraining() {
-  state.training = els.trainingText.value.trim() || DEFAULT_TRAINING;
+  state.training = AiraConversation.normalizeBrand(els.trainingText.value.trim() || DEFAULT_TRAINING);
+  els.trainingText.value = state.training;
   localStorage.setItem("aira_training", state.training);
   setStatus(els.trainingStatus, "Saving training...", "");
   try {
@@ -400,7 +372,7 @@ async function simulateConversation(event) {
 
   if (state.serverUrl) {
     try {
-      const data = await postJson("/api/simulate", { text, history: state.chat.slice(-12) });
+      const data = await postJson("/api/simulate", { text, history: state.chat.slice(0, -1).slice(-40) });
       addChat("assistant", data.reply || getLocalAssistantReply(text));
     } catch {
       addChat("assistant", getLocalAssistantReply(text));
@@ -414,7 +386,7 @@ function renderChat() {
   els.chatLog.innerHTML = "";
   state.chat = [];
   state.lead = {};
-  addChat("assistant", "Thanks for calling Superior Consultation, LLC. This is AIRA. How can I help?");
+  addChat("assistant", AiraConversation.greeting);
 }
 
 function addChat(role, text) {
@@ -427,49 +399,15 @@ function addChat(role, text) {
 }
 
 function getLocalAssistantReply(text) {
-  const lower = text.toLowerCase();
-  updateLeadMemory(text);
-
-  if (isAffirmative(lower) && state.lead.pending === "details") {
-    state.lead.pending = "contact";
-    return "Great. What name, number, email, and business should I include?";
+  const step = AiraConversation.advance(state.lead, text);
+  if (step?.save) {
+    AiraConversation.saved(state.lead);
+    return "In a real call, I'd save that confirmed message now. This practice message hasn't been sent.";
   }
-
-  if (state.lead.pending === "contact" && looksLikeContact(text)) {
-    state.lead.contact = text;
-    state.lead.pending = null;
-    return "Got it. I have your details and message. I will route this to the right person.";
-  }
-
-  if (lower.includes("i need") || lower.includes("we need") || lower.includes("looking for") || lower.includes("want to build")) {
-    state.lead.intent = text;
-    state.lead.pending = "details";
-    return "That makes sense. Is it a new app, existing system, or Work Zone OS?";
-  }
-
-  if (lower.includes("permission") || lower.includes("admin") || lower.includes("phone")) {
-    return "AIRA can request browser permissions here. Deeper phone controls need approved native, carrier, or telephony access.";
-  }
-  if (lower.includes("price") || lower.includes("cost")) {
-    state.lead.pending = "details";
-    return "Pricing ranges from $9.99 to $4500. What are you trying to launch or improve?";
-  }
-  if (lower.includes("work zone") || lower.includes("desk-less") || lower.includes("deskless")) {
-    state.lead.intent = "Work Zone OS";
-    return "Work Zone OS supports desk-less crews. Are you focused on dispatch, job tracking, or communication?";
-  }
-  if (lower.includes("email") || lower.includes("contact") || lower.includes("phone")) {
-    return "Corporate inquiries can use info@superiorllc.org. Everyone else can reach Ray at ray@workzoneos.org, or call 540-797-0405 or 844-685-7207 toll free.";
-  }
-  if (lower.includes("message") || lower.includes("callback") || lower.includes("call back")) {
-    state.lead.pending = "contact";
-    return "Sure thing. What's your name, number, email, business, and message?";
-  }
-  if (state.lead.intent && !state.lead.contact) {
-    state.lead.pending = "contact";
-    return `Got it, ${state.lead.intent}. Who should we contact, and what number or email should we use?`;
-  }
-  return "I can take a message, discuss Work Zone OS, or route support. What do you need handled?";
+  if (step) return step.reply;
+  const reply = AiraConversation.fallback(text);
+  state.lead.offerMessage = /would you like to leave (?:a message|one)/i.test(reply);
+  return reply;
 }
 
 async function saveMessage(event) {
@@ -590,7 +528,7 @@ function extractEmail(value) {
 
 function speakPreview() {
   if (!("speechSynthesis" in window)) return;
-  const utterance = new SpeechSynthesisUtterance("This is AIRA with Superior Consultation. I can route your call or take a message.");
+  const utterance = new SpeechSynthesisUtterance("This is AIRA with Molecular Project Development, LLC. I can route your call or take a message.");
   window.speechSynthesis.cancel();
   window.speechSynthesis.speak(utterance);
 }
@@ -602,7 +540,7 @@ async function postJson(path, body) {
   try {
     const res = await fetch(`${state.serverUrl}${path}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...operatorHeaders() },
       body: JSON.stringify(body),
       signal: controller.signal,
     });
@@ -617,7 +555,7 @@ async function fetchJson(url) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
   try {
-    const res = await fetch(url, { signal: controller.signal });
+    const res = await fetch(url, { signal: controller.signal, headers: operatorHeaders() });
     if (!res.ok) throw new Error(`server returned ${res.status}`);
     return res.json();
   } finally {
@@ -716,4 +654,9 @@ function applyAppUpdate() {
   }
   els.updateBanner.hidden = true;
   state.waitingWorker.postMessage({ type: "SKIP_WAITING" });
+}
+
+function operatorHeaders() {
+  const input = document.getElementById("operatorToken");
+  return input?.value ? {Authorization: "Bearer " + input.value} : {};
 }

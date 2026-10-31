@@ -1,9 +1,10 @@
-const CACHE_NAME = "aira-ai-v6";
+const CACHE_NAME = "aira-ai-v7";
 const STATIC_ASSETS = [
   "/",
   "/index.html",
   "/styles.css",
   "/app.js",
+  "/conversation.js",
   "/manifest.json",
   "/favicon.png",
   "/assets/aira-favicon.png",

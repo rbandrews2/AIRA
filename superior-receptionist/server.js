@@ -7,9 +7,11 @@ const twilio = require("twilio");
 const Anthropic = require("@anthropic-ai/sdk");
 const { createClient } = require("@supabase/supabase-js");
 
+const conversation = require("./public/conversation");
+const {gatewayReply}=require('./lib/gateway');
 const app = express();
 const PORT = process.env.PORT || 3000;
-const DATA_DIR = path.join(__dirname, "data");
+const DATA_DIR = process.env.AIRA_DATA_DIR || path.join(__dirname, "data");
 const DATA_FILE = path.join(DATA_DIR, "aira-store.json");
 
 const DEFAULT_VOICE = process.env.AIRA_VOICE || "Polly.Joanna-Neural";
@@ -19,7 +21,7 @@ const AIRA_OWNER_ID = process.env.AIRA_OWNER_ID || "";
 const AIRA_ASSISTANT_FUNCTION_URL = process.env.AIRA_ASSISTANT_FUNCTION_URL || "";
 
 const anthropic = process.env.ANTHROPIC_API_KEY
-  ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+  ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, timeout: 6500, maxRetries: 0 })
   : null;
 const supabase = process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
   ? createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
@@ -29,9 +31,12 @@ const supabase = process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_K
 
 const store = loadStore();
 const activeCalls = new Map();
+// Express 4 does not automatically forward rejected async route handlers.
+function post(route, handler) { app.post(route, (req, res, next) => Promise.resolve().then(() => handler(req, res)).catch(next)); }
+function get(route, handler) { app.get(route, (req, res, next) => Promise.resolve().then(() => handler(req, res)).catch(next)); }
 
 app.use((req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", process.env.AIRA_ALLOWED_ORIGIN || "*");
+  if (process.env.AIRA_ALLOWED_ORIGIN) res.setHeader("Access-Control-Allow-Origin", process.env.AIRA_ALLOWED_ORIGIN);
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   if (req.method === "OPTIONS") return res.sendStatus(204);
@@ -42,12 +47,23 @@ app.use(express.urlencoded({ extended: false }));
 app.use(express.json({ limit: "1mb" }));
 app.use(express.static(path.join(__dirname, "public")));
 
-app.get("/health", (_req, res) => {
+get("/health", (_req, res) => {
   res.json({ ok: true, service: "aira-ai-receptionist", timestamp: new Date().toISOString() });
 });
 
-app.post("/voice/incoming", async (req, res) => {
+app.use("/voice", (req, res, next) => {
+  const token = process.env.TWILIO_AUTH_TOKEN;
+  const publicUrl = process.env.PUBLIC_URL;
+  if (process.env.AIRA_LOCAL_TEST === "true" && process.env.NODE_ENV !== "production" && ["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(req.socket.remoteAddress)) return next();
+  if (!token || !publicUrl) return res.status(503).json({error: "Voice webhook validation is not configured"});
+  const valid = twilio.validateRequest(token, req.get("X-Twilio-Signature") || "", publicUrl.replace(/\/$/, "") + req.originalUrl, req.body);
+  if (!valid) return res.sendStatus(403);
+  next();
+});
+
+post("/voice/incoming", async (req, res) => {
   const callSid = req.body.CallSid;
+  if (!callSid) return res.sendStatus(400);
   const caller = req.body.From || "Unknown";
   const call = {
     caller,
@@ -67,17 +83,12 @@ app.post("/voice/incoming", async (req, res) => {
   if (RECORD_CALLS) {
     twiml.say({ voice: store.settings.voice || DEFAULT_VOICE }, "This call may be recorded for quality and training purposes.");
   }
-  twiml.say(
-    { voice: store.settings.voice || DEFAULT_VOICE, language: "en-US" },
-    "Thanks for calling Superior Consultation, LLC. This is AIRA. How can I help?"
-  );
-  appendGather(twiml);
-  twiml.redirect("/voice/no-input");
+  appendGather(twiml, conversation.greeting, call.voice);
 
   res.type("text/xml").send(twiml.toString());
 });
 
-app.post("/voice/respond", async (req, res) => {
+post("/voice/respond", async (req, res) => {
   const callSid = req.body.CallSid;
   const speech = (req.body.SpeechResult || "").trim();
   const call = activeCalls.get(callSid);
@@ -89,54 +100,67 @@ app.post("/voice/respond", async (req, res) => {
     return res.type("text/xml").send(twiml.toString());
   }
 
-  if (!speech) {
-    twiml.say({ voice: call.voice }, "I did not catch that. Please say that again.");
-    appendGather(twiml);
+  if (!speech) return handleSilence(callSid, twiml, res);
+  call.silenceCount = 0;
+  if (req.body.Confidence !== undefined && Number(req.body.Confidence) < 0.45) {
+    appendGather(twiml, "The line broke up a little. Would you say that again?", call.voice);
     return res.type("text/xml").send(twiml.toString());
   }
 
   call.transcript.push({ role: "caller", content: speech, at: new Date().toISOString() });
   call.screened = screenCall(speech, call.screened);
 
-  if (wantsTransfer(speech) && TRANSFER_NUMBER) {
+  if (!call.memory.stage && wantsTransfer(speech) && TRANSFER_NUMBER) {
     await persistSupabaseTurn(call, "caller", speech);
     twiml.say({ voice: call.voice }, "I can connect you now. Please hold while I transfer the call.");
-    twiml.dial({ answerOnBridge: true }, TRANSFER_NUMBER);
-    await finalizeCall(callSid, "transferred");
+    twiml.dial({ answerOnBridge: true, action: "/voice/transfer-result", method: "POST", timeout: 20 }, TRANSFER_NUMBER);
     return res.type("text/xml").send(twiml.toString());
   }
 
-  if (isGoodbye(speech)) {
+  if (!call.memory.stage && isGoodbye(speech)) {
     await persistSupabaseTurn(call, "caller", speech);
-    twiml.say({ voice: call.voice }, "Thank you for calling Superior Consultation. Have a productive day.");
+    twiml.say({ voice: call.voice }, "Thanks for calling. Take care!");
     twiml.hangup();
     await finalizeCall(callSid, "completed");
     return res.type("text/xml").send(twiml.toString());
   }
 
   const { reply, persistedByEdge } = await getAssistantReply(call, speech);
+  if (/would you like to leave (?:a message|one)/i.test(reply)) call.memory.offerMessage = true;
   call.transcript.push({ role: "assistant", content: reply, at: new Date().toISOString() });
   if (!persistedByEdge) {
     await persistSupabaseTurn(call, "caller", speech);
     await persistSupabaseTurn(call, "aira", reply);
   }
-  await maybeCaptureMessage(call, speech);
 
-  twiml.say({ voice: call.voice, language: "en-US" }, reply);
-  appendGather(twiml);
-  twiml.redirect("/voice/no-input");
+  appendGather(twiml, reply, call.voice);
   res.type("text/xml").send(twiml.toString());
 });
 
-app.post("/voice/no-input", (req, res) => {
+function handleSilence(callSid, twiml, res) {
+  const call = activeCalls.get(callSid);
+  if (!call || (call.silenceCount = (call.silenceCount || 0) + 1) >= 3) {
+    twiml.say({voice: call?.voice || DEFAULT_VOICE}, "I can't hear you, so I'll let you go. You're welcome to call again. Goodbye.");
+    twiml.hangup();
+    finalizeCall(callSid, "completed").catch(() => console.error("Could not finalize silent call"));
+  } else appendGather(twiml, call.silenceCount === 1 ? "Are you still there? Take your time." : "I'm having trouble hearing you. Could you try once more?", call.voice);
+  return res.type("text/xml").send(twiml.toString());
+}
+post("/voice/no-input", (req, res) => handleSilence(req.body.CallSid, new twilio.twiml.VoiceResponse(), res));
+post("/voice/transfer-result", async (req, res) => {
   const call = activeCalls.get(req.body.CallSid);
   const twiml = new twilio.twiml.VoiceResponse();
-  twiml.say({ voice: call?.voice || store.settings.voice || DEFAULT_VOICE }, "I am still here if you need help.");
-  appendGather(twiml);
+  if (req.body.DialCallStatus === "completed") {
+    twiml.hangup();
+    await finalizeCall(req.body.CallSid, "transferred");
+  } else if (call) {
+    call.memory.offerMessage = true;
+    appendGather(twiml, "I couldn't reach anyone just now. Would you like to leave a message?", call.voice);
+  } else twiml.hangup();
   res.type("text/xml").send(twiml.toString());
 });
 
-app.post("/voice/status", (req, res) => {
+post("/voice/status", (req, res) => {
   if (["completed", "busy", "failed", "no-answer", "canceled"].includes(req.body.CallStatus)) {
     finalizeCall(req.body.CallSid, req.body.CallStatus).catch((error) => {
       console.error("Finalize call error:", error.message);
@@ -145,7 +169,17 @@ app.post("/voice/status", (req, res) => {
   res.sendStatus(200);
 });
 
-app.get("/api/status", async (_req, res) => {
+app.use("/api", (req, res, next) => {
+  res.setHeader("Cache-Control", "no-store");
+  const expected = process.env.AIRA_OPERATOR_TOKEN;
+  if (!expected) return res.status(503).json({error: "Operator access is not configured"});
+  const actual = req.get("Authorization") || "";
+  const a = Buffer.from(actual), b = Buffer.from("Bearer " + expected);
+  if (a.length !== b.length || !require("node:crypto").timingSafeEqual(a,b)) return res.sendStatus(401);
+  next();
+});
+
+get("/api/status", async (_req, res) => {
   const supabaseCounts = await getSupabaseCounts();
   res.json({
     activeCalls: Array.from(activeCalls.entries()).map(([sid, call]) => ({
@@ -160,22 +194,37 @@ app.get("/api/status", async (_req, res) => {
   });
 });
 
-app.get("/api/calls", async (_req, res) => {
+get("/api/calls", async (_req, res) => {
   const calls = await getSupabaseCalls();
   res.json(calls || store.calls);
 });
 
-app.get("/api/messages", async (_req, res) => {
+get("/api/messages", async (_req, res) => {
   const messages = await getSupabaseMessages();
-  res.json(messages || store.messages);
+  const pending = store.messages.filter(message => message.sync_pending);
+  res.json(messages ? [...pending.filter(message => !messages.some(remote => remote.id === message.id)), ...messages] : store.messages);
 });
 
-app.get("/api/training", async (_req, res) => {
+get("/api/training", async (_req, res) => {
   const prompt = await getSupabaseTraining();
-  res.json({ prompt: prompt || store.training });
+  res.json({ prompt: conversation.normalizeBrand(prompt || store.training) });
 });
 
-app.post("/api/messages", async (req, res) => {
+// Authenticated, idempotent recovery of records preserved before a deployment.
+post('/api/restore',async(req,res)=>{
+  const incoming=req.body;
+  if(!incoming||!Array.isArray(incoming.calls)||!Array.isArray(incoming.messages)||incoming.calls.length>1000||incoming.messages.length>1000||[...incoming.calls,...incoming.messages].some(item=>!item||typeof item.id!=='string'))return res.status(400).json({error:'Invalid recovery snapshot'});
+  const previous={calls:store.calls,messages:store.messages,training:store.training};
+  for(const key of ['calls','messages']){
+    const known=new Set(store[key].map(item=>item.id));
+    store[key]=[...store[key],...incoming[key].filter(item=>{if(known.has(item.id))return false;known.add(item.id);return true;})];
+  }
+  if(typeof incoming.training==='string' && !store.trainingVersions.length)store.training=incoming.training.slice(0,12000);
+  try{persistStore();}catch(error){Object.assign(store,previous);throw error;}
+  res.json({ok:true,calls:store.calls.length,messages:store.messages.length});
+});
+
+post("/api/messages", async (req, res) => {
   const phone = String(req.body.phone || "").slice(0, 80);
   const email = String(req.body.email || "").slice(0, 120);
   const message = {
@@ -195,72 +244,99 @@ app.post("/api/messages", async (req, res) => {
   res.status(201).json(message);
 });
 
-app.post("/api/training", async (req, res) => {
+post("/api/training", async (req, res) => {
   if (!req.body.prompt || typeof req.body.prompt !== "string") {
     return res.status(400).json({ error: "prompt is required" });
   }
-  store.training = req.body.prompt.slice(0, 12000);
+  store.training = conversation.normalizeBrand(req.body.prompt.slice(0, 12000));
   store.trainingVersions.unshift({ prompt: store.training, created_at: new Date().toISOString() });
   persistStore();
   await persistSupabaseTraining(store.training);
   res.json({ ok: true });
 });
 
-app.post("/api/settings/voice", (req, res) => {
+post("/api/settings/voice", (req, res) => {
   store.settings.voice = String(req.body.voice || DEFAULT_VOICE);
   persistStore();
   res.json({ ok: true, voice: store.settings.voice });
 });
 
-app.post("/api/simulate", async (req, res) => {
-  const text = String(req.body.text || "").slice(0, 500);
-  if (!text) return res.status(400).json({ error: "text is required" });
-
-  if (anthropic) {
-    try {
-      const history = Array.isArray(req.body.history) ? req.body.history : [];
-      const messages = history
-        .filter((turn) => turn.role === "user" || turn.role === "assistant")
-        .slice(-12)
-        .map((turn) => ({ role: turn.role, content: String(turn.text || turn.content || "") }));
-      messages.push({ role: "user", content: text });
-
-      const response = await anthropic.messages.create({
-        model: process.env.ANTHROPIC_MODEL || "claude-3-5-sonnet-20241022",
-        max_tokens: 90,
-        system: store.training,
-        messages,
-      });
-      return res.json({ reply: response.content?.[0]?.text || localReply(text) });
-    } catch (error) {
-      console.error("Simulate AI error:", error.message);
+post("/api/simulate", async (req, res) => {
+  const text = String(req.body.text || "").trim().slice(0, 2000);
+  if (!text) return res.status(400).json({error: "text is required"});
+  const history = Array.isArray(req.body.history) ? req.body.history.slice(-40) : [];
+  const call = {memory: {}, transcript: [], simulation: true};
+  // Replay caller turns only, preserving deterministic message state without trusting client state.
+  for (const turn of history) {
+    const content = String(turn.content || turn.text || "").slice(0,2000);
+    if (["user", "caller"].includes(turn.role)) {
+      const step = conversation.advance(call.memory, content);
+      if (step?.save) conversation.saved(call.memory);
+      call.transcript.push({role: "caller", content});
+    } else if (turn.role === "assistant") {
+      if (/would you like to leave (?:a message|one)/i.test(content)) call.memory.offerMessage = true;
+      call.transcript.push({role: "assistant", content});
     }
   }
-  res.json({ reply: localReply(text) });
+  call.transcript.push({role: "caller", content: text});
+  const result = await getAssistantReply(call, text);
+  res.json({reply: result.reply});
 });
 
 app.use((_req, res) => res.status(404).json({ error: "Not found" }));
+app.use((error, req, res, _next) => {
+  console.error("AIRA request failed:", error.name);
+  if (res.headersSent) return;
+  if (req.path.startsWith("/voice/")) {
+    const twiml = new twilio.twiml.VoiceResponse();
+    appendGather(twiml, "I'm sorry, something went wrong. Please try that again.");
+    return res.type("text/xml").send(twiml.toString());
+  }
+  res.status(500).json({error: "Unable to complete request"});
+});
 
-app.listen(PORT, () => {
+if (require.main === module) app.listen(PORT, process.env.AIRA_BIND_HOST || "0.0.0.0", () => {
   console.log(`AIRA AI receptionist running at http://localhost:${PORT}`);
 });
 
-function appendGather(twiml) {
-  twiml.gather({
-    input: "speech",
-    action: "/voice/respond",
-    method: "POST",
-    speechTimeout: "auto",
-    language: "en-US",
-    timeout: 10,
-  });
+module.exports = { app, activeCalls, store, getAssistantReply };
+
+function appendGather(twiml, prompt, voice = DEFAULT_VOICE) {
+  const gather = twiml.gather({input: "speech", action: "/voice/respond", method: "POST", speechTimeout: 2, language: "en-US", timeout: 8, actionOnEmptyResult: true});
+  if (prompt) gather.say({voice, language: "en-US"}, prompt);
 }
 
-async function getAssistantReply(call, speech) {
-  const edgeReply = await getEdgeAssistantReply(call, speech);
+async function getAssistantReply(call, speech, provider = anthropic) {
+  const step = conversation.advance(call.memory, speech);
+  if (step) {
+    if (!step.save) return {reply: step.reply, persistedByEdge: false};
+    if (call.simulation) {
+      conversation.saved(call.memory);
+      return {reply: "In a real call, I'd save that confirmed message now. This practice message hasn't been sent.", persistedByEdge: false};
+    }
+    const message = {id: cryptoId(), ...step.save, business_name: "", sync_pending: true, created_at: new Date().toISOString()};
+    store.messages.unshift(message);
+    try { persistStore(); }
+    catch (error) {
+      store.messages.shift();
+      return {reply: "I'm sorry, I couldn't save your message. Shall I try again?", persistedByEdge: false};
+    }
+    conversation.saved(call.memory);
+    if (await persistSupabaseMessage(message)) {
+      message.sync_pending = false;
+      try { persistStore(); } catch { console.error("Could not update message sync status"); }
+    }
+    return {reply: "Thanks, I've saved your message for the team. Is there anything else I can help with?", persistedByEdge: false};
+  }
+  if (wantsTransfer(speech)) return {reply: localReply(speech, call), persistedByEdge: false};
+  if(process.env.AIRA_GATEWAY_URL){
+    try{return {reply:conversation.normalizeBrand(await gatewayReply(call.transcript)),persistedByEdge:false};}
+    catch(error){console.error('Aira phone gateway unavailable:',error.message);return {reply:localReply(speech,call),persistedByEdge:false};}
+  }
+  const edgeReply = !provider ? await getEdgeAssistantReply(call, speech) : null;
   if (edgeReply) return edgeReply;
 
-  if (!anthropic) return { reply: localReply(speech, call), persistedByEdge: false };
+  if (!provider) return { reply: localReply(speech, call), persistedByEdge: false };
 
   try {
     const messages = call.transcript
@@ -268,14 +344,14 @@ async function getAssistantReply(call, speech) {
       .slice(-12)
       .map((turn) => ({ role: turn.role === "caller" ? "user" : "assistant", content: turn.content }));
 
-    const response = await anthropic.messages.create({
-      model: process.env.ANTHROPIC_MODEL || "claude-3-5-sonnet-20241022",
-      max_tokens: 90,
-      system: store.training,
+    const response = await provider.messages.create({
+      model: process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6",
+      max_tokens: 180,
+      system: buildTraining(),
       messages,
     });
 
-    return { reply: response.content?.[0]?.text || localReply(speech, call), persistedByEdge: false };
+    return { reply: conversation.normalizeBrand(response.content?.find(part => part.type === "text")?.text) || localReply(speech, call), persistedByEdge: false };
   } catch (error) {
     console.error("AIRA AI provider error:", error.message);
     return { reply: localReply(speech, call), persistedByEdge: false };
@@ -288,6 +364,7 @@ async function getEdgeAssistantReply(call, speech) {
   try {
     const response = await fetch(AIRA_ASSISTANT_FUNCTION_URL, {
       method: "POST",
+      signal: AbortSignal.timeout(7000),
       headers: {
         "Content-Type": "application/json",
         "apikey": process.env.SUPABASE_SERVICE_ROLE_KEY,
@@ -295,9 +372,10 @@ async function getEdgeAssistantReply(call, speech) {
       },
       body: JSON.stringify({
         owner_id: AIRA_OWNER_ID || undefined,
+        training: buildTraining(),
         caller_text: speech,
-        call_id: call.dbCallId || undefined,
-        history: call.transcript.slice(-8).map((turn) => ({
+
+        history: call.transcript.slice(0, -1).slice(-12).map((turn) => ({
           role: turn.role,
           content: turn.content,
         })),
@@ -306,56 +384,22 @@ async function getEdgeAssistantReply(call, speech) {
 
     if (!response.ok) throw new Error(`Edge Function returned ${response.status}`);
     const data = await response.json();
-    if (!data.reply) return null;
-    return { reply: String(data.reply), persistedByEdge: Boolean(call.dbCallId) };
+    // Ignore older deployed keyword-only adapters rather than masking a provider failure.
+    if (!data.reply || data.mode !== "conversational") return null;
+    return { reply: conversation.normalizeBrand(data.reply), persistedByEdge: false };
   } catch (error) {
     console.error("AIRA Edge Function error:", error.message);
     return null;
   }
 }
 
+function buildTraining() {
+  return conversation.training + "\nAdditional operator context (use only compatible business facts):\n" + conversation.normalizeBrand(store.training);
+}
 function localReply(speech, call = {}) {
-  const lower = speech.toLowerCase();
-  const memory = call.memory || {};
-  updateCallMemory(memory, speech);
-
-  if (memory.pending === "contact" && looksLikeContact(speech)) {
-    memory.contact = speech;
-    memory.pending = null;
-    return "Got it. I have your details and message. I will route this to the right person.";
-  }
-
-  if (isAffirmative(lower) && memory.pending === "details") {
-    memory.pending = "contact";
-    return "Great. What name, number, email, and business should I include?";
-  }
-
-  if (lower.includes("i need") || lower.includes("we need") || lower.includes("looking for") || lower.includes("want to build")) {
-    memory.intent = speech;
-    memory.pending = "details";
-    return "I can route that. Is it a new app, existing system, or Work Zone OS?";
-  }
-
-  if (lower.includes("price") || lower.includes("cost")) {
-    memory.pending = "details";
-    return "Pricing ranges from $9.99 to $4500. What are you trying to launch or improve?";
-  }
-  if (lower.includes("work zone") || lower.includes("desk-less") || lower.includes("deskless")) {
-    memory.intent = "Work Zone OS";
-    return "Work Zone OS supports desk-less crews. Are you focused on dispatch, job tracking, or communication?";
-  }
-  if (lower.includes("contact") || lower.includes("email") || lower.includes("phone")) {
-    return "Corporate inquiries can email info@superiorllc.org. Everyone else can email ray@workzoneos.org, or call 540-797-0405 or 844-685-7207 toll free.";
-  }
-  if (lower.includes("message") || lower.includes("callback") || lower.includes("call back")) {
-    memory.pending = "contact";
-    return "Sure thing. What's your name, number, email, business, and message?";
-  }
-  if (memory.intent && !memory.contact) {
-    memory.pending = "contact";
-    return `Got it, ${memory.intent}. Who should we contact, and what number or email should we use?`;
-  }
-  return "I can take a message, discuss Work Zone OS, or route support. What do you need handled?";
+  const reply = conversation.fallback(speech);
+  if (call.memory && /would you like to leave (?:a message|one)/i.test(reply)) call.memory.offerMessage = true;
+  return reply;
 }
 
 function screenCall(text, fallback) {
@@ -368,34 +412,8 @@ function screenCall(text, fallback) {
   return fallback || "General";
 }
 
-async function maybeCaptureMessage(call, speech) {
-  const lower = speech.toLowerCase();
-  if (!lower.includes("message") && !lower.includes("callback") && !lower.includes("call back")) return;
-  const message = {
-    id: cryptoId(),
-    name: "Phone caller",
-    contact: call.caller,
-    phone: call.caller,
-    email: "",
-    business_name: "",
-    body: speech,
-    urgency: lower.includes("urgent") ? "Urgent" : "Normal",
-    created_at: new Date().toISOString(),
-  };
-  store.messages.unshift(message);
-  persistStore();
-  await persistSupabaseMessage(message);
-}
-
-function wantsTransfer(text) {
-  const lower = text.toLowerCase();
-  return lower.includes("transfer") || lower.includes("representative") || lower.includes("human") || lower.includes("person");
-}
-
-function isGoodbye(text) {
-  const lower = text.toLowerCase();
-  return lower.includes("goodbye") || lower === "bye" || lower.includes("hang up") || lower.includes("that's all");
-}
+function wantsTransfer(text) { return conversation.wantsTransfer(text); }
+function isGoodbye(text) { return conversation.goodbye(text); }
 
 async function finalizeCall(callSid, status) {
   const call = activeCalls.get(callSid);
@@ -472,9 +490,10 @@ async function persistSupabaseTurn(call, speaker, textBody) {
 }
 
 async function persistSupabaseMessage(message) {
-  if (!supabase || !AIRA_OWNER_ID) return;
+  if (!supabase || !AIRA_OWNER_ID) return false;
 
   const { error } = await supabase.from("aira_messages").insert({
+    id: message.id,
     owner_id: AIRA_OWNER_ID,
     caller_name: message.name || "Unknown",
     caller_contact: message.contact || "",
@@ -486,6 +505,7 @@ async function persistSupabaseMessage(message) {
     created_at: message.created_at || new Date().toISOString(),
   });
   if (error) console.error("Supabase message insert error:", error.message);
+  return !error;
 }
 
 async function persistSupabaseTraining(prompt) {
@@ -664,18 +684,12 @@ function loadStore() {
 }
 
 function persistStore() {
-  fs.writeFileSync(DATA_FILE, JSON.stringify(store, null, 2));
+  const temporary = DATA_FILE + ".tmp";
+  fs.writeFileSync(temporary, JSON.stringify(store, null, 2));
+  fs.renameSync(temporary, DATA_FILE);
 }
 
-function defaultTraining() {
-  return `You are AIRA, the upbeat, professional, polite receptionist for Superior Consultation, LLC.
-Superior Consultation consults and develops applications. Superior Consultation is home to Work Zone OS - The operating system for desk-less road crews and field teams.
-Prices range from $9.99 to $4500 depending on the specific product and personnel.
-Corporate email is info@superiorllc.org. Everyone else can email ray@workzoneos.org.
-Phone numbers are 540-797-0405 and 844-685-7207 toll free.
-AIRA answers calls, determines caller intent, takes messages, and collects caller name, contact number, email address, business represented, and message when available.
-Keep responses under 20 words when possible. Use contractions. Ask one question at a time. Avoid AI cliches.`;
-}
+function defaultTraining() { return conversation.training; }
 
 function cryptoId() {
   if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();

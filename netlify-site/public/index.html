@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>AIRA AI | Molecular Project Development LLC</title>
+  <meta name="description" content="AIRA AI call assistant and receptionist console for Molecular Project Development LLC." />
+  <meta name="theme-color" content="#242424" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="AIRA AI" />
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <link rel="apple-touch-icon" href="/icons/icon-180.png" />
+  <link rel="preload" href="/styles.css" as="style" />
+  <link rel="preload" href="/app.js" as="script" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="office-atmosphere" aria-hidden="true">
+    <div class="office-light light-a"></div>
+    <div class="office-light light-b"></div>
+    <img class="aira-ambient ambient-a" src="/assets/aira-transparent-1.png" alt="" />
+    <img class="aira-ambient ambient-b" src="/assets/aira-transparent-2.png" alt="" />
+  </div>
+
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="AIRA AI home">
+        <img src="/assets/aira-favicon.png" alt="" />
+        <span>
+          <strong>AIRA AI</strong>
+          <small>Molecular Project Development LLC</small>
+        </span>
+      </a>
+      <div class="status">
+        <span class="status-dot"></span>
+        <span id="connectionLabel">Local mode</span>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <section class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">AIRA AI the receptionist and business assistant</p>
+          <h1>AIRA AI handles your receptionist and business assistant needs.</h1>
+          <p>
+            AIRA answers for Molecular Project Development LLC, handles natural caller conversations,
+            captures messages, prepares transcripts, and keeps key business context ready.
+          </p>
+        </div>
+        <aside class="hero-card">
+          <img src="/assets/aira-install.png" alt="AIRA AI portrait" />
+          <div>
+            <span>AIRA profile</span>
+            <strong>Conversational receptionist</strong>
+          </div>
+        </aside>
+      </section>
+
+      <section id="installPanel" class="install-panel install-nudge" hidden>
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">App install</p>
+            <h2>Keep AIRA one tap away</h2>
+          </div>
+          <button id="dismissInstallPanel" class="ghost icon-button" type="button" aria-label="Dismiss install prompt">x</button>
+        </div>
+
+        <p class="nudge-copy">Install the dashboard when your browser offers it. Browser media permissions stay optional and can be granted when you test voice features.</p>
+
+        <div class="permission-grid compact">
+          <div class="permission-row" data-permission="camera">
+            <span>Camera / video</span>
+            <strong id="permCamera">Not requested</strong>
+          </div>
+          <div class="permission-row" data-permission="microphone">
+            <span>Microphone</span>
+            <strong id="permMicrophone">Not requested</strong>
+          </div>
+          <div class="permission-row native-only">
+            <span>Appear on top</span>
+            <strong>Native Android required</strong>
+          </div>
+          <div class="permission-row native-only">
+            <span>Alter system settings</span>
+            <strong>Native Android required</strong>
+          </div>
+          <div class="permission-row native-only">
+            <span>Device admin</span>
+            <strong>Native Android required</strong>
+          </div>
+          <div class="permission-row native-only">
+            <span>Call answer / end / transfer / record</span>
+            <strong>Telephony or native role</strong>
+          </div>
+        </div>
+
+        <label class="consent-line">
+          <input id="operatorConsent" type="checkbox" />
+          <span>I grant supported browser permissions and understand OS-level permissions require native Android/iOS or telephony-provider approval.</span>
+        </label>
+
+        <div class="install-actions">
+          <button id="grantPermissionsBtn" type="button">Grant supported permissions</button>
+          <button id="installAppBtn" type="button" disabled>Install AIRA</button>
+          <button id="stopInstallBtn" class="danger" type="button">Do not show again</button>
+        </div>
+      </section>
+
+      <nav class="tabs" aria-label="AIRA sections">
+        <button class="active" data-tab="console" type="button">Console</button>
+        <button data-tab="training" type="button">Training</button>
+        <button data-tab="messages" type="button">Messages</button>
+        <button data-tab="data" type="button" hidden>Data Safety</button>
+        <button data-tab="architecture" type="button" hidden>Roadmap</button>
+      </nav>
+
+      <section id="console" class="tab-panel active">
+        <article class="panel aira-workbench">
+          <div class="aira-avatar" aria-hidden="true">
+            <img src="/assets/aira-favicon.png" alt="" />
+            <span id="airaListeningDot"></span>
+          </div>
+          <div>
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">AIRA workspace</p>
+                <h3>AIRA desk</h3>
+              </div>
+              <div class="button-row">
+                <button id="startVoiceCommandsBtn" type="button">Talk to AIRA</button>
+                <button id="stopVoiceCommandsBtn" class="ghost" type="button">Stop</button>
+              </div>
+            </div>
+            <p id="airaStatus" class="action-status" role="status">AIRA is ready to organize messages, clean transcripts, and queue follow-ups.</p>
+            <p id="airaHeard" class="heard-line" aria-live="polite"></p>
+            <div class="command-bar">
+              <input id="airaCommandInput" autocomplete="off" placeholder="Tell AIRA what to do..." />
+              <button id="runAiraCommandBtn" type="button">Run</button>
+            </div>
+            <details class="command-menu">
+              <summary>Voice commands</summary>
+              <div class="command-library" aria-label="Available AIRA voice commands">
+                <span>ok AIRA activate</span>
+                <span>organize caller details</span>
+                <span>fix transcription errors</span>
+                <span>archive completed messages</span>
+                <span>show messages</span>
+                <span>refresh call logs</span>
+                <span>return call Mr. X and confirm his appointment for tomorrow 2 pm</span>
+              </div>
+            </details>
+            <div id="airaTaskList" class="task-list"></div>
+          </div>
+        </article>
+
+        <div class="metrics-strip">
+          <div><strong id="activeCalls">0</strong><span>Active calls</span></div>
+          <div><strong id="totalCalls">0</strong><span>Call records</span></div>
+          <div><strong id="messageCount">0</strong><span>Messages</span></div>
+          <button id="refreshBtn" class="ghost" type="button">Refresh</button>
+        </div>
+
+        <details class="secondary-drawer">
+          <summary>Voice and connection settings</summary>
+          <article class="panel">
+            <label for="voiceSelect">Receptionist voice</label>
+            <select id="voiceSelect">
+              <option value="Polly.Joanna-Neural">Professional - Joanna</option>
+              <option value="Polly.Salli-Neural">Warm - Salli</option>
+              <option value="Polly.Amy-Neural">British - Amy</option>
+              <option value="Polly.Matthew-Neural">Direct - Matthew</option>
+              <option value="alice">Browser voice - local preview</option>
+            </select>
+            <label for="serverUrl">Server URL</label>
+            <input id="serverUrl" type="url" autocomplete="url" readonly aria-readonly="true" />
+            <label for="operatorToken">Private inbox access token</label>
+            <input id="operatorToken" type="password" autocomplete="off" placeholder="Enter your operator token to view calls and messages" />
+            <p class="action-status">Only needed for private call records and messages. Stored for this browser session.</p>
+            <p class="action-status">This Render backend address is fixed in the app and restored automatically.</p>
+            <div class="button-row">
+              <button id="saveServerBtn" type="button">Check connection</button>
+              <button id="speakBtn" class="ghost" type="button">Test voice</button>
+            </div>
+            <p id="connectionStatus" class="action-status" role="status"></p>
+            <div class="button-row">
+              <button id="enableNotificationsBtn" class="ghost" type="button">Enable browser notifications</button>
+            </div>
+            <p id="notificationStatus" class="action-status" role="status">In-app alerts are active. Enable browser notifications for background alerts while AIRA is open.</p>
+          </article>
+        </details>
+
+        <div class="grid two quiet-grid">
+          <article class="panel">
+            <div class="panel-heading">
+              <h3>Live Readiness</h3>
+            </div>
+            <div id="activeCallList" class="empty">No active calls are connected.</div>
+          </article>
+        </div>
+
+        <details class="secondary-drawer" open>
+          <summary>Conversation simulator</summary>
+          <article class="panel">
+            <p id="conversationStatus" class="notice" role="status">Practice conversation — no message will be sent.</p>
+            <button id="resetConversation" type="button" class="ghost">New practice call</button>
+            <div id="chatLog" class="chat-log"></div>
+            <div id="leadSummary" class="lead-summary" aria-live="polite"></div>
+            <form id="chatForm" class="chat-form">
+              <input id="callerText" autocomplete="off" placeholder="Type what a caller says..." />
+              <button type="submit">Send</button>
+            </form>
+          </article>
+        </details>
+      </section>
+
+      <section id="training" class="tab-panel">
+        <article class="panel">
+          <div class="panel-heading">
+            <h3>Programmable Knowledge</h3>
+            <button id="resetTrainingBtn" class="ghost" type="button">Reset</button>
+          </div>
+          <textarea id="trainingText" spellcheck="true"></textarea>
+          <button id="saveTrainingBtn" type="button">Save training</button>
+          <p id="trainingStatus" class="action-status" role="status"></p>
+        </article>
+      </section>
+
+      <section id="messages" class="tab-panel">
+        <div class="grid two">
+          <article class="panel">
+            <h3>Take A Message</h3>
+            <form id="messageForm" class="stacked-form">
+              <input id="msgName" placeholder="Caller name" required />
+              <input id="msgPhone" type="tel" placeholder="Contact number" />
+              <input id="msgEmail" type="email" placeholder="Email address" />
+              <input id="msgBusiness" placeholder="Business represented" />
+              <textarea id="msgBody" placeholder="Message" required></textarea>
+              <select id="msgUrgency">
+                <option>Normal</option>
+                <option>High</option>
+                <option>Urgent</option>
+              </select>
+              <button type="submit">Save message</button>
+              <p id="messageStatus" class="action-status" role="status"></p>
+            </form>
+          </article>
+          <article class="panel">
+            <h3>Inbox</h3>
+            <div class="message-filters" role="tablist" aria-label="Message filters">
+              <button class="active" data-message-filter="active" type="button">Active</button>
+              <button data-message-filter="archived" type="button">Archived</button>
+            </div>
+            <div id="inboxList" class="list"></div>
+            <section id="callerDetail" class="caller-detail empty" aria-live="polite">
+              Select a caller to view their details.
+            </section>
+          </article>
+          <article class="panel">
+            <div class="panel-heading">
+              <h3>Conversation Logs</h3>
+              <button id="refreshCallsBtn" class="ghost" type="button">Refresh</button>
+            </div>
+            <p class="routing-note">Recorded calls land here first. Use Route to inbox when AIRA identifies a message that needs follow-up.</p>
+            <div id="callLogList" class="list transcript-list"></div>
+          </article>
+        </div>
+      </section>
+
+      <section id="data" class="tab-panel">
+        <article class="panel">
+          <h3>Data Safety Guards In This Build</h3>
+          <ul class="capability-list">
+            <li>Secrets stay on the server or Supabase Edge Function, never in browser code.</li>
+            <li>Recording is disabled by default and must include caller disclosure before activation.</li>
+            <li>Training versions, messages, calls, transcripts, and audit events have separate Supabase tables.</li>
+            <li>Supabase row-level security is enabled in the migration for owner-scoped access.</li>
+            <li>Service worker caching excludes `/api/` and `/voice/` traffic.</li>
+            <li>Netlify security headers are configured for frame, MIME, referrer, and permission policy protection.</li>
+          </ul>
+        </article>
+      </section>
+
+      <section id="architecture" class="tab-panel">
+        <article class="panel">
+          <h3>Capability Roadmap</h3>
+          <ul class="capability-list">
+            <li><strong>PWA:</strong> dashboard, install flow, training, messages, transcript review, browser media permissions.</li>
+            <li><strong>Telephony:</strong> company-number answering, transfers, hold music, SMS, recording after consent.</li>
+            <li><strong>Android companion:</strong> OS-approved call screening, overlay, settings, and device-admin flows.</li>
+            <li><strong>iOS companion:</strong> CallKit for AIRA-owned VoIP workflows.</li>
+            <li><strong>Future OS:</strong> AIRA as a full smart-phone operating layer built from native, carrier, and device AI components.</li>
+          </ul>
+          <p class="notice">
+            Project memory: AIRA is aimed first at call-assistant secretary duties, with a long-term plan to become a full AI smartphone operating system.
+            Super-user-style access must be requested transparently and granted by the user or phone operator through legitimate OS or carrier mechanisms.
+          </p>
+        </article>
+      </section>
+    </main>
+  </div>
+  <div id="updateBanner" class="update-banner" role="status" aria-live="polite" hidden>
+    <span>AIRA update available.</span>
+    <button id="applyUpdateBtn" type="button">Update now</button>
+    <button id="dismissUpdateBtn" class="ghost" type="button">Later</button>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="/conversation.js" defer></script>
+  <script src="/app.js" defer></script>
+
+</body>
+</html>
