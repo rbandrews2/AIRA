@@ -657,20 +657,25 @@ async function handleMessageAction(action, id) {
   const message = state.messages.find((msg) => msg.id === id);
   if (!message) return;
 
+  if (["delete", "archive", "restore"].includes(action) && !await syncMessageAction(id, action)) return;
+
   if (action === "delete") {
     state.messages = state.messages.filter((msg) => msg.id !== id);
     if (state.selectedMessageId === id) state.selectedMessageId = null;
     addTask("Deleted message after operator review", "done");
-    await syncMessageAction(id, "delete");
+
   } else if (action === "archive" || action === "restore") {
     message.status = action === "archive" ? "archived" : "new";
     addTask(`${action === "archive" ? "Archived" : "Restored"} message for ${message.name || "caller"}`, "done");
-    await syncMessageAction(id, action);
+
   } else if (action === "organize-one") {
-    organizeMessage(message);
-    message.status = message.status === "archived" ? "archived" : "organized";
+    const organized = {...message};
+    organizeMessage(organized);
+    organized.status = message.status === "archived" ? "archived" : "organized";
+    if (!await syncMessageAction(id, "organize", organized)) return;
+    Object.assign(message, organized);
     addTask(`Organized caller details for ${message.name || "caller"}`, "done");
-    await syncMessageAction(id, "organize", message);
+
   } else if (action === "follow-up") {
     assignFollowUp(message, `Return call ${message.name || "caller"} about: ${message.body || "their message"}`);
   }
@@ -681,16 +686,15 @@ async function handleMessageAction(action, id) {
 }
 
 async function syncMessageAction(id, action, message = null) {
-  if (!state.serverUrl) return;
+  if (!state.serverUrl) return true;
   try {
-    if (action === "delete") {
-      await fetchJsonWithMethod(`${state.serverUrl}/api/messages/${encodeURIComponent(id)}`, "DELETE");
-      return;
-    }
+    const url = `${state.serverUrl}/api/messages/${encodeURIComponent(id)}`;
     const status = action === "archive" ? "archived" : action === "restore" ? "new" : message?.status || "organized";
-    await fetchJsonWithMethod(`${state.serverUrl}/api/messages/${encodeURIComponent(id)}`, "PATCH", { status, message });
-  } catch {
-    showToast("Action saved locally. Server sync failed.", "error");
+    await fetchJsonWithMethod(url, action === "delete" ? "DELETE" : "PATCH", action === "delete" ? undefined : {status,message});
+    return true;
+  } catch(error) {
+    showToast(error.status === 401 ? "Not saved. Sign in under Admin to change messages." : "Not saved. The server could not update this message. Please retry.", "error");
+    return false;
   }
 }
 
@@ -712,14 +716,16 @@ async function handleCallAction(action, id) {
     return;
   }
 
+  if (["delete", "archive", "restore"].includes(action) && !await syncCallAction(id, action)) return;
+
   if (action === "delete") {
     state.calls = state.calls.filter((item) => String(item.id) !== String(id));
     addTask("Deleted a call transcript after operator review", "done");
-    await syncCallAction(id, "delete");
+
   } else if (action === "archive" || action === "restore") {
     call.status = action === "archive" ? "archived" : "completed";
     addTask(`${action === "archive" ? "Archived" : "Restored"} call transcript`, "done");
-    await syncCallAction(id, action, call);
+
   }
 
   localStorage.setItem("aira_calls", JSON.stringify(state.calls));
@@ -727,18 +733,14 @@ async function handleCallAction(action, id) {
   renderTasks();
 }
 
-async function syncCallAction(id, action, call = null) {
-  if (!state.serverUrl) return;
+async function syncCallAction(id, action) {
+  if (!state.serverUrl) return true;
   try {
-    if (action === "delete") {
-      await fetchJsonWithMethod(`${state.serverUrl}/api/calls/${encodeURIComponent(id)}`, "DELETE");
-      return;
-    }
-    await fetchJsonWithMethod(`${state.serverUrl}/api/calls/${encodeURIComponent(id)}`, "PATCH", {
-      status: call?.status || (action === "archive" ? "archived" : "completed"),
-    });
-  } catch {
-    showToast("Call log action saved locally. Server sync failed.", "error");
+    await fetchJsonWithMethod(`${state.serverUrl}/api/calls/${encodeURIComponent(id)}`, action === "delete" ? "DELETE" : "PATCH", action === "delete" ? undefined : {status:action === "archive" ? "archived" : "completed"});
+    return true;
+  } catch(error) {
+    showToast(error.status === 401 ? "Not saved. Sign in under Admin to change call logs." : "Not saved. The server could not update this call log. Please retry.", "error");
+    return false;
   }
 }
 

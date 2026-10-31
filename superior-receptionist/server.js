@@ -37,7 +37,7 @@ function get(route, handler) { app.get(route, (req, res, next) => Promise.resolv
 
 app.use((req, res, next) => {
   if (process.env.AIRA_ALLOWED_ORIGIN) res.setHeader("Access-Control-Allow-Origin", process.env.AIRA_ALLOWED_ORIGIN);
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   if (req.method === "OPTIONS") return res.sendStatus(204);
   next();
@@ -204,6 +204,36 @@ get("/api/messages", async (_req, res) => {
   const pending = store.messages.filter(message => message.sync_pending);
   res.json(messages ? [...pending.filter(message => !messages.some(remote => remote.id === message.id)), ...messages] : store.messages);
 });
+
+// Private inbox mutations use the same durable store as the live phone service.
+for (const collection of ["messages", "calls"]) {
+  for (const method of ["patch", "delete"]) {
+    app[method](`/api/${collection}/:id`, (req, res, next) => {
+      try {
+        // A different storage authority must not receive a false local success.
+        if (supabase && AIRA_OWNER_ID) return res.status(503).json({error:"Inbox changes require the configured database adapter"});
+        const index = store[collection].findIndex(item => String(item.id) === req.params.id);
+        if (index < 0) return res.status(404).json({error:"Record not found"});
+        const previous = store[collection];
+        const record = previous[index];
+        let updated;
+        if (method === "patch") {
+          const allowed = collection === "messages" ? ["new", "archived", "organized"] : ["completed", "archived"];
+          if (!allowed.includes(req.body.status)) return res.status(400).json({error:"Invalid status"});
+          updated = {...record, status:req.body.status};
+          if (collection === "messages" && req.body.message) {
+            for (const key of ["name","phone","email","business_name","contact","body","urgency"]) {
+              if (typeof req.body.message[key] === "string") updated[key] = req.body.message[key].slice(0,key === "body" ? 2000 : 220);
+            }
+          }
+          store[collection] = previous.map((item,i) => i === index ? updated : item);
+        } else store[collection] = previous.filter((_,i) => i !== index);
+        try { persistStore(); } catch(error) { store[collection] = previous; throw error; }
+        res.json(method === "delete" ? {ok:true,id:req.params.id} : updated);
+      } catch(error) { next(error); }
+    });
+  }
+}
 
 get("/api/training", async (_req, res) => {
   const prompt = await getSupabaseTraining();

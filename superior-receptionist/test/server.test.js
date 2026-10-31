@@ -103,3 +103,25 @@ test('failed local save never claims success and permits retry',async()=>{
   assert.match((await getAssistantReply(call,'yes')).reply,/saved your message/);
   assert.equal(store.messages.length,count+1);
 });
+
+test('archive, restore and delete require auth and persist to disk',async()=>{
+  const headers={Authorization:'Bearer test-operator','Content-Type':'application/json'};
+  const options=await fetch(url+'/api/messages/example',{method:'OPTIONS'});
+  assert.match(options.headers.get('access-control-allow-methods'),/PATCH, DELETE/);
+  for(const collection of ['messages','calls']){
+    const id='mutation-'+collection;
+    store[collection].push({id,body:'Preserve content',status:'new'});
+    const endpoint=url+'/api/'+collection+'/'+id;
+    assert.equal((await fetch(endpoint,{method:'DELETE'})).status,401);
+    assert.equal((await fetch(endpoint,{method:'PATCH',headers,body:JSON.stringify({status:'invalid'})})).status,400);
+    for(const status of ['archived',collection==='messages'?'new':'completed']){
+      const result=await fetch(endpoint,{method:'PATCH',headers,body:JSON.stringify({status})});
+      assert.equal(result.status,200);
+      assert.equal((await result.json()).body,'Preserve content');
+      assert.equal(JSON.parse(fs.readFileSync(path.join(dir,'aira-store.json')))[collection].find(item=>item.id===id).status,status);
+    }
+    assert.equal((await fetch(endpoint,{method:'DELETE',headers})).status,200);
+    assert.equal(JSON.parse(fs.readFileSync(path.join(dir,'aira-store.json')))[collection].some(item=>item.id===id),false);
+    assert.equal((await fetch(endpoint,{method:'PATCH',headers,body:JSON.stringify({status:'archived'})})).status,404);
+  }
+});
