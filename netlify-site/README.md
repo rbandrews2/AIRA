@@ -21,6 +21,8 @@ Render deployment `dep-dbim3rbil8vc739saoc0` reached live on release `d401cfadcd
 
 ## What changed
 
+Dashboard access repair: verified authenticated `/api/status`, `/api/messages` and `/api/calls` each return HTTP 200 with the expected dashboard CORS origin. The open in-app browser was signed in and showed four call records and two messages. Check connection now refreshes both records lists; Refresh and the periodic update also refresh status, messages and calls together. Missing or rejected tokens are distinguished from backend/network errors. Authentication remains session-scoped, so a different browser session must sign in separately. No phone backend deployment was needed for this UI repair.
+
 - Browser conversation requests use same-origin `/api/simulate`, served by a Netlify Function using the official Anthropic SDK. Netlify AI Gateway can inject its credentials at runtime.
 - Trusted receptionist instructions stay on the server; caller-supplied training cannot override them. Input, history, response length, provider timeout and endpoint request rate are bounded.
 - Message collection remembers supplied details, accepts corrections and optional contact details, answers common side questions, and requests confirmation. Practice conversations do not write inbox messages or promise delivery.

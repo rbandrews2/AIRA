@@ -50,7 +50,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (location.hash === "#messages") switchTab("messages");
   refreshStatus();
   refreshMessages();
-  setInterval(refreshMessages, 30000);
+  setInterval(() => { refreshMessages(); refreshCalls(); refreshStatus(); }, 30000);
   refreshCalls();
   refreshPermissionState();
   lockPreferredOrientation();
@@ -104,7 +104,7 @@ function bindEvents() {
 
   document.getElementById("saveServerBtn").addEventListener("click", saveServer);
   document.getElementById("enableNotificationsBtn").addEventListener("click", enableBrowserNotifications);
-  document.getElementById("refreshBtn").addEventListener("click", refreshStatus);
+  document.getElementById("refreshBtn").addEventListener("click", () => { refreshStatus(); refreshMessages(); refreshCalls(); });
   document.getElementById("refreshCallsBtn").addEventListener("click", refreshCalls);
   document.getElementById("saveTrainingBtn").addEventListener("click", saveTraining);
   document.getElementById("resetTrainingBtn").addEventListener("click", resetTraining);
@@ -185,7 +185,12 @@ function switchTab(tabName) {
 }
 
 async function saveServer() {
-  sessionStorage.setItem('aira_operator_token',document.getElementById('operatorToken').value.trim());
+  const token=document.getElementById('operatorToken').value.trim();
+  if(state.serverUrl&&!token){
+    setStatus(els.connectionStatus,'Enter your private inbox access token first. This unlocks messages and call logs; it does not affect phone calls.','error');
+    return;
+  }
+  sessionStorage.setItem('aira_operator_token',token);
   persistServerDraft();
   updateConnectionLabel();
   if (!state.serverUrl) {
@@ -197,13 +202,16 @@ async function saveServer() {
 
   setStatus(els.connectionStatus, "Checking server connection...", "");
   const ok = await refreshStatus();
-  await refreshMessages();
   if (ok) {
+    const [messagesLoaded,callsLoaded]=await Promise.all([refreshMessages(),refreshCalls()]);
+    if(!messagesLoaded||!callsLoaded){
+      setStatus(els.connectionStatus,'Signed in, but some records did not refresh. Click Refresh to try again.','error');
+      return;
+    }
     setStatus(els.connectionStatus, "Connected. AIRA can read live backend status.", "success");
     showToast("Server connection saved.", "success");
   } else {
-    setStatus(els.connectionStatus, "Connection failed. Check your private inbox access token and the backend status.", "error");
-    showToast("Connection failed. Check the server URL and backend.", "error");
+    setStatus(els.connectionStatus, state.connectionError || 'The backend did not respond. Please try again.', 'error');
   }
 }
 
@@ -242,6 +250,8 @@ async function refreshStatus() {
 
   try {
     const data = await fetchJson(`${state.serverUrl}/api/status`);
+    state.connectionError='';
+    els.connectionLabel.textContent='Private inbox connected';
     els.activeCalls.textContent = String(data.activeCalls?.length || 0);
     els.totalCalls.textContent = String(data.callLogCount || 0);
     els.messageCount.textContent = String(data.inboxCount || 0);
@@ -249,8 +259,10 @@ async function refreshStatus() {
       ? data.activeCalls.map((call) => `<div class="list-item"><strong>${escapeHtml(call.caller)}</strong><span>${escapeHtml(call.screened || "Screening")}</span>${escapeHtml(call.lastMessage || "")}</div>`).join("")
       : "No active calls are connected.";
     return true;
-  } catch {
-    els.activeCallList.textContent = "Server is not reachable from this browser.";
+  } catch (error) {
+    state.connectionError=error.status===401 ? 'The access token was not accepted. Copy the complete AIRA_OPERATOR_TOKEN value from Render, paste it here, and check the connection again.' : error.status===503 ? 'The backend is temporarily unavailable or operator access is not configured. Please try again shortly.' : 'The backend could not be reached. Check your connection and try again.';
+    els.activeCallList.textContent=state.connectionError;
+    els.connectionLabel.textContent=error.status===401?'Private inbox locked':'Inbox connection unavailable';
     return false;
   }
 }
@@ -298,6 +310,7 @@ function updateMessageFilterButtons() {
 
 async function refreshCalls() {
   if (!els.callLogList) return true;
+  if(state.serverUrl&&!sessionStorage.getItem('aira_operator_token'))return false;
   if (!state.serverUrl) {
     renderCalls(state.calls);
     return true;
@@ -880,7 +893,7 @@ async function postJson(path, body) {
       body: JSON.stringify(body),
       signal: controller.signal,
     });
-    if (!res.ok) throw new Error(`server returned ${res.status}`);
+    if (!res.ok) throw Object.assign(new Error(`server returned ${res.status}`),{status:res.status});
     return res.json();
   } finally {
     clearTimeout(timeout);
@@ -892,7 +905,7 @@ async function fetchJson(url) {
   const timeout = setTimeout(() => controller.abort(), 10000);
   try {
     const res = await fetch(url, { signal: controller.signal,headers:operatorHeaders(url) });
-    if (!res.ok) throw new Error(`server returned ${res.status}`);
+    if (!res.ok) throw Object.assign(new Error(`server returned ${res.status}`),{status:res.status});
     return res.json();
   } finally {
     clearTimeout(timeout);
@@ -909,7 +922,7 @@ async function fetchJsonWithMethod(url, method, body = null) {
       body: body ? JSON.stringify(body) : undefined,
       signal: controller.signal,
     });
-    if (!res.ok) throw new Error(`server returned ${res.status}`);
+    if (!res.ok) throw Object.assign(new Error(`server returned ${res.status}`),{status:res.status});
     return res.status === 204 ? null : res.json();
   } finally {
     clearTimeout(timeout);
