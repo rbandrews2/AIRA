@@ -1,6 +1,23 @@
-# Aira Netlify conversation preview
+# Aira Netlify conversation gateway
 
 Prepared October 30, 2026 from the October 2 published Netlify UI. This is a separate deploy root from `superior-receptionist`, which serves the Render/phone backend.
+
+## Production phone rollout
+
+The user authorized production for a real phone test, confirmed Render workspace `tea-d2ob0lu3jp1c73fhb7d0`, and approved a 1 GB disk at $0.25/month.
+
+- Netlify production: https://aira.superiorllc.org ; deployment `6ae5623c6a94ffb113181306`.
+- Code release: `d401cfadcd0c8d3706ff14d229f53eccc3f4e584` on GitHub main. Earlier staged changes not included in that focused release remain in the local checkout.
+- Live number: 844-685-7207. Twilio's POST webhook is `https://aira-web-service.onrender.com/voice/incoming`; status callback is `/voice/status`.
+- Render sends timestamped HMAC-authenticated requests to `/api/phone-reply`. This endpoint uses live-phone instructions, not the simulator's practice instructions. Netlify and Render use their existing Twilio secret to authenticate these server-to-server requests; the secret is never sent in a request body or exposed to a browser.
+- The custom Netlify Anthropic key is now retained only for dev and branch-deploy contexts. Production and deploy-preview use gateway-injected credentials. No new AI-provider account, plan, or auto-recharge was enabled.
+- Render `AIRA_DATA_DIR=/var/data/aira` is beneath the approved disk mount `/var/data`. Disk-backed deploys briefly interrupt the single running service.
+- Private backend APIs require `AIRA_OPERATOR_TOKEN`. The live dashboard accepts this under Voice and connection settings, stores it in sessionStorage, and sends it only to the configured backend origin. Retrieve the token through the authenticated Render environment settings; do not paste it into chat or Git.
+- `/api/restore` is operator-authenticated and idempotently merges preserved call/message records. The pre-rollout snapshot is local, ignored, and not in this repository's published source.
+
+Validation: 12 Netlify/phone-adapter tests and 20 backend/conversation tests passed locally. A signed request to the production phone-model endpoint returned a real model reply in about 2.5 seconds. This timing is one observation, not a latency guarantee. Actual caller audio quality still requires the user's phone test.
+
+Render deployment `dep-dbim3rbil8vc739saoc0` reached live on release `d401cfadcd0c8d3706ff14d229f53eccc3f4e584`. Signed `/voice/incoming` and `/voice/respond` checks returned HTTP 200 and valid TwiML with the new greeting and a gateway-generated response. The preserved call record was restored. A synthetic "Aira deployment test" message increased the inbox count from zero to one only after confirmation. Two synthetic call records and that clearly labeled test message were retained for review. No outbound phone call or customer notification was sent by these checks.
 
 ## What changed
 
@@ -14,7 +31,7 @@ Prepared October 30, 2026 from the October 2 published Netlify UI. This is a sep
 
 Use Node 22.13 or later. Run `npm ci`, `npm test`, then `npm run preview`. Open http://localhost:3138. Plain local preview does not receive Netlify gateway credentials; model replies require a Netlify runtime or appropriately configured local provider credentials. Never put credentials in public files.
 
-## Gateway configuration and draft deployment
+## Preview checkpoint (historical, before phone rollout)
 
 Target project: `stately-syrniki-aa3804` (`0288f77d-2578-4ce5-9f5f-c3e9dd191fda`).
 
@@ -32,4 +49,4 @@ Final runtime verification: `mode: model` returned with `providerHost` equal to 
 4. From this directory, deploy a draft: `netlify deploy --site 0288f77d-2578-4ce5-9f5f-c3e9dd191fda --dir public --functions netlify/functions --context deploy-preview`. The CLI requires its build phase when selecting a context; do not add `--no-build`.
 5. Test a synthetic general question (must return `mode: model`), correction/confirmation, and provider-failure behavior. Confirm no inbox records were created. Inspect function logs without storing caller details.
 
-No production deployment, plan/recharge changes or phone-routing migration has been performed by this preview. Gateway smoke tests use the existing Netlify credit balance. Real phone audio, interruption behavior and Twilio/Render persistence require separate end-to-end verification. Publishing to production requires deliberately addressing the production Anthropic override; promoting a draft alone is not a verified production gateway migration.
+At this historical preview checkpoint, no production deployment, plan/recharge changes or phone-routing migration had been performed. Gateway smoke tests use the existing Netlify credit balance. Real phone audio, interruption behavior and Twilio/Render persistence require separate end-to-end verification. Publishing to production requires deliberately addressing the production Anthropic override; promoting a draft alone is not a verified production gateway migration.

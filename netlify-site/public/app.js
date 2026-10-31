@@ -227,6 +227,11 @@ function saveVoice() {
 }
 
 async function refreshStatus() {
+  if(state.serverUrl&&!sessionStorage.getItem('aira_operator_token')){
+    els.activeCalls.textContent='—';els.totalCalls.textContent='—';els.messageCount.textContent='—';
+    els.activeCallList.textContent='Private inbox locked. Enter your access token in Voice and connection settings to view call status. Phone calls work independently of dashboard access.';
+    return false;
+  }
   if (!state.serverUrl) {
     els.activeCalls.textContent = "0";
     els.totalCalls.textContent = String(state.calls.length);
@@ -251,6 +256,7 @@ async function refreshStatus() {
 }
 
 async function refreshMessages() {
+  if(state.serverUrl&&!sessionStorage.getItem('aira_operator_token'))return false;
   if (!state.serverUrl || state.refreshingMessages) return false;
   state.refreshingMessages = true;
 
