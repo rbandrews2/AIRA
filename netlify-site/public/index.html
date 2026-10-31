@@ -40,83 +40,8 @@
     </header>
 
     <main class="workspace">
-      <section class="hero">
-        <div class="hero-copy">
-          <p class="eyebrow">AIRA AI the receptionist and business assistant</p>
-          <h1>AIRA AI handles your receptionist and business assistant needs.</h1>
-          <p>
-            AIRA answers for Molecular Project Development LLC, handles natural caller conversations,
-            captures messages, prepares transcripts, and keeps key business context ready.
-          </p>
-        </div>
-        <aside class="hero-card">
-          <img src="/assets/aira-install.png" alt="AIRA AI portrait" />
-          <div>
-            <span>AIRA profile</span>
-            <strong>Conversational receptionist</strong>
-          </div>
-        </aside>
-      </section>
-
-      <section id="installPanel" class="install-panel install-nudge" hidden>
-        <div class="panel-heading">
-          <div>
-            <p class="eyebrow">App install</p>
-            <h2>Keep AIRA one tap away</h2>
-          </div>
-          <button id="dismissInstallPanel" class="ghost icon-button" type="button" aria-label="Dismiss install prompt">x</button>
-        </div>
-
-        <p class="nudge-copy">Install the dashboard when your browser offers it. Browser media permissions stay optional and can be granted when you test voice features.</p>
-
-        <div class="permission-grid compact">
-          <div class="permission-row" data-permission="camera">
-            <span>Camera / video</span>
-            <strong id="permCamera">Not requested</strong>
-          </div>
-          <div class="permission-row" data-permission="microphone">
-            <span>Microphone</span>
-            <strong id="permMicrophone">Not requested</strong>
-          </div>
-          <div class="permission-row native-only">
-            <span>Appear on top</span>
-            <strong>Native Android required</strong>
-          </div>
-          <div class="permission-row native-only">
-            <span>Alter system settings</span>
-            <strong>Native Android required</strong>
-          </div>
-          <div class="permission-row native-only">
-            <span>Device admin</span>
-            <strong>Native Android required</strong>
-          </div>
-          <div class="permission-row native-only">
-            <span>Call answer / end / transfer / record</span>
-            <strong>Telephony or native role</strong>
-          </div>
-        </div>
-
-        <label class="consent-line">
-          <input id="operatorConsent" type="checkbox" />
-          <span>I grant supported browser permissions and understand OS-level permissions require native Android/iOS or telephony-provider approval.</span>
-        </label>
-
-        <div class="install-actions">
-          <button id="grantPermissionsBtn" type="button">Grant supported permissions</button>
-          <button id="installAppBtn" type="button" disabled>Install AIRA</button>
-          <button id="stopInstallBtn" class="danger" type="button">Do not show again</button>
-        </div>
-      </section>
-
-      <nav class="tabs" aria-label="AIRA sections">
-        <button class="active" data-tab="console" type="button">Console</button>
-        <button data-tab="training" type="button">Training</button>
-        <button data-tab="messages" type="button">Messages</button>
-        <button data-tab="data" type="button" hidden>Data Safety</button>
-        <button data-tab="architecture" type="button" hidden>Roadmap</button>
-      </nav>
-
-      <section id="console" class="tab-panel active">
+      <nav class="tabs" aria-label="AIRA sections"><button class="active" data-tab="messages" type="button">Inbox</button><button data-tab="calls" type="button">Calls</button><button data-tab="console" type="button">Admin</button></nav>
+      <section id="console" class="tab-panel"><div class="inbox-heading"><div><p class="eyebrow">BEHIND THE DESK</p><h1>Manage Aira</h1><p>Connection, training, and receptionist tools.</p></div></div>
         <article class="panel aira-workbench">
           <div class="aira-avatar" aria-hidden="true">
             <img src="/assets/aira-favicon.png" alt="" />
@@ -200,7 +125,7 @@
           </article>
         </div>
 
-        <details class="secondary-drawer" open>
+        <details class="secondary-drawer">
           <summary>Conversation simulator</summary>
           <article class="panel">
             <p id="conversationStatus" class="notice" role="status">Practice conversation — no message will be sent.</p>
@@ -213,9 +138,7 @@
             </form>
           </article>
         </details>
-      </section>
-
-      <section id="training" class="tab-panel">
+      <details id="training" class="admin-section secondary-drawer"><summary>Training &amp; business knowledge</summary>
         <article class="panel">
           <div class="panel-heading">
             <h3>Programmable Knowledge</h3>
@@ -225,11 +148,9 @@
           <button id="saveTrainingBtn" type="button">Save training</button>
           <p id="trainingStatus" class="action-status" role="status"></p>
         </article>
-      </section>
+      </details>
 
-      <section id="messages" class="tab-panel">
-        <div class="grid two">
-          <article class="panel">
+<details class="secondary-drawer"><summary>Take a message manually</summary>          <article class="panel">
             <h3>Take A Message</h3>
             <form id="messageForm" class="stacked-form">
               <input id="msgName" placeholder="Caller name" required />
@@ -246,28 +167,69 @@
               <p id="messageStatus" class="action-status" role="status"></p>
             </form>
           </article>
-          <article class="panel">
-            <h3>Inbox</h3>
-            <div class="message-filters" role="tablist" aria-label="Message filters">
-              <button class="active" data-message-filter="active" type="button">Active</button>
-              <button data-message-filter="archived" type="button">Archived</button>
-            </div>
-            <div id="inboxList" class="list"></div>
-            <section id="callerDetail" class="caller-detail empty" aria-live="polite">
-              Select a caller to view their details.
-            </section>
-          </article>
-          <article class="panel">
+</details>      <section id="installPanel" class="install-panel install-nudge" hidden>
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">App install</p>
+            <h2>Keep AIRA one tap away</h2>
+          </div>
+          <button id="dismissInstallPanel" class="ghost icon-button" type="button" aria-label="Dismiss install prompt">x</button>
+        </div>
+
+        <p class="nudge-copy">Install the dashboard when your browser offers it. Browser media permissions stay optional and can be granted when you test voice features.</p>
+
+        <div class="permission-grid compact">
+          <div class="permission-row" data-permission="camera">
+            <span>Camera / video</span>
+            <strong id="permCamera">Not requested</strong>
+          </div>
+          <div class="permission-row" data-permission="microphone">
+            <span>Microphone</span>
+            <strong id="permMicrophone">Not requested</strong>
+          </div>
+          <div class="permission-row native-only">
+            <span>Appear on top</span>
+            <strong>Native Android required</strong>
+          </div>
+          <div class="permission-row native-only">
+            <span>Alter system settings</span>
+            <strong>Native Android required</strong>
+          </div>
+          <div class="permission-row native-only">
+            <span>Device admin</span>
+            <strong>Native Android required</strong>
+          </div>
+          <div class="permission-row native-only">
+            <span>Call answer / end / transfer / record</span>
+            <strong>Telephony or native role</strong>
+          </div>
+        </div>
+
+        <label class="consent-line">
+          <input id="operatorConsent" type="checkbox" />
+          <span>I grant supported browser permissions and understand OS-level permissions require native Android/iOS or telephony-provider approval.</span>
+        </label>
+
+        <div class="install-actions">
+          <button id="grantPermissionsBtn" type="button">Grant supported permissions</button>
+          <button id="installAppBtn" type="button" disabled>Install AIRA</button>
+          <button id="stopInstallBtn" class="danger" type="button">Do not show again</button>
+        </div>
+      </section>
+
+      </section>
+
+      <section id="messages" class="tab-panel active">
+<div class="inbox-heading"><div><p class="eyebrow">YOUR RECEPTIONIST, AT A GLANCE</p><h1>Messages</h1></div><button class="ghost" data-tab="console" type="button">Manage Aira</button></div>
+<div class="messenger"><aside class="thread-sidebar" aria-label="Message inbox"><div class="thread-heading"><h2>Inbox</h2><span>Phone messages</span></div><label class="search-label" for="messageSearch">Search messages</label><input id="messageSearch" type="search" placeholder="Search callers or messages" /><div class="message-filters" aria-label="Message filters"><button class="active" data-message-filter="active" type="button">Active</button><button data-message-filter="archived" type="button">Archived</button></div><div id="inboxList" class="list"></div></aside><section id="callerDetail" class="caller-detail empty" aria-live="polite">Your messages will appear here.</section></div></section>
+<section id="calls" class="tab-panel"><div class="inbox-heading"><div><p class="eyebrow">CONVERSATION HISTORY</p><h1>Calls</h1></div></div>          <article class="panel">
             <div class="panel-heading">
               <h3>Conversation Logs</h3>
               <button id="refreshCallsBtn" class="ghost" type="button">Refresh</button>
             </div>
             <p class="routing-note">Recorded calls land here first. Use Route to inbox when AIRA identifies a message that needs follow-up.</p>
             <div id="callLogList" class="list transcript-list"></div>
-          </article>
-        </div>
-      </section>
-
+          </article></section>
       <section id="data" class="tab-panel">
         <article class="panel">
           <h3>Data Safety Guards In This Build</h3>

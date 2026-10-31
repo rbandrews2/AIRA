@@ -47,7 +47,8 @@ document.addEventListener("DOMContentLoaded", () => {
   hydrate();
   renderInbox();
   renderChat();
-  if (location.hash === "#messages") switchTab("messages");
+  switchTab(["messages", "calls", "console"].includes(location.hash.slice(1)) ? location.hash.slice(1) : "messages");
+  document.getElementById("messageSearch").addEventListener("input", renderInbox);
   refreshStatus();
   refreshMessages();
   setInterval(() => { refreshMessages(); refreshCalls(); refreshStatus(); }, 30000);
@@ -176,6 +177,8 @@ function restorePersistentSettings() {
 }
 
 function switchTab(tabName) {
+  if (tabName === "training") tabName = "console";
+  history.replaceState(null, "", `#${tabName}`);
   document.querySelectorAll("[data-tab]").forEach((button) => {
     button.classList.toggle("active", button.dataset.tab === tabName);
   });
@@ -634,12 +637,13 @@ function renderInbox() {
           </div>
         </article>
       `).join("")
-    : `<div class="empty">No ${state.messageFilter === "archived" ? "archived" : "active"} messages yet.</div>`;
+    : `<div class="empty">${document.getElementById("messageSearch")?.value.trim() ? "No messages match your search." : IS_PRODUCTION_SITE && !sessionStorage.getItem("aira_operator_token") ? "Your inbox is private. Open Admin → Voice and connection settings to sign in." : `No ${state.messageFilter === "archived" ? "archived" : "active"} messages yet.`}</div>`;
   renderCallerDetail();
 }
 
 function getVisibleMessages() {
-  return state.messages.filter((msg) => state.messageFilter === "archived"
+  const query = (document.getElementById("messageSearch")?.value || "").trim().toLowerCase();
+  return state.messages.filter(msg => [msg.name, msg.body, msg.phone, msg.email].join(" ").toLowerCase().includes(query)).filter((msg) => state.messageFilter === "archived"
     ? msg.status === "archived"
     : msg.status !== "archived" && msg.status !== "deleted");
 }
@@ -769,7 +773,7 @@ function renderCallerDetail() {
   const selected = visibleMessages.find((msg) => msg.id === state.selectedMessageId) || visibleMessages[0];
   if (!selected) {
     els.callerDetail.className = "caller-detail empty";
-    els.callerDetail.textContent = "Select a caller to view their details.";
+    els.callerDetail.innerHTML = `<div class="empty-conversation"><img src="/assets/aira-favicon.png" alt="" /><h2>A little more space for your day.</h2><p>Messages Aira takes will appear here. Select a caller to read their message and plan a follow-up.</p></div>`;
     return;
   }
 
@@ -777,17 +781,17 @@ function renderCallerDetail() {
   els.callerDetail.className = "caller-detail";
   els.callerDetail.innerHTML = `
     <div class="detail-heading">
-      <span>Caller Details</span>
+      <span>Phone message</span>
       <strong>${escapeHtml(selected.name || "Unknown caller")}</strong>
     </div>
-    <dl>
+    <div class="message-bubble"><span>Message</span><p>${escapeHtml(selected.body || "No message recorded.")}</p></div>
+    <details class="contact-details"><summary>Caller details &amp; contact information</summary><dl>
       <div><dt>Contact number</dt><dd>${escapeHtml(selected.phone || "Not provided")}</dd></div>
       <div><dt>Email address</dt><dd>${escapeHtml(selected.email || "Not provided")}</dd></div>
       <div><dt>Business</dt><dd>${escapeHtml(selected.business_name || "Not provided")}</dd></div>
       <div><dt>Urgency</dt><dd>${escapeHtml(selected.urgency || "Normal")}</dd></div>
       <div><dt>Status</dt><dd>${escapeHtml(selected.status || "new")}</dd></div>
-      <div class="message-detail"><dt>Message left</dt><dd>${escapeHtml(selected.body || "No message recorded.")}</dd></div>
-    </dl>
+    </dl></details>
     <div class="detail-actions">
       <button type="button" data-message-action="follow-up" data-message-id="${escapeHtml(selected.id)}">Assign follow-up call</button>
       <button class="ghost" type="button" data-message-action="organize-one" data-message-id="${escapeHtml(selected.id)}">Let AIRA organize</button>
@@ -804,7 +808,7 @@ function renderCalls(calls) {
         <article class="list-item transcript-item">
           <strong>${escapeHtml(call.caller || "Unknown caller")}</strong>
           <span>${escapeHtml(formatCallMeta(call))}</span>
-          <pre>${escapeHtml(formatTranscript(call.transcript, call.transcript_summary))}</pre>
+          <div class="call-conversation">${Array.isArray(call.transcript) && call.transcript.length ? call.transcript.map(turn => `<div class="transcript-bubble ${turn.role === "assistant" ? "assistant" : "caller"}"><small>${escapeHtml(turn.role === "assistant" ? "Aira" : "Caller")}</small><p>${escapeHtml(turn.content || turn.text_body || turn.text || "")}</p></div>`).join("") : `<p>${escapeHtml(formatTranscript(call.transcript, call.transcript_summary))}</p>`}</div>
           <div class="item-actions">
             <button type="button" data-call-action="route" data-call-id="${escapeHtml(call.id)}">Route to inbox</button>
             <button class="ghost" type="button" data-call-action="${call.status === "archived" ? "restore" : "archive"}" data-call-id="${escapeHtml(call.id)}">${call.status === "archived" ? "Restore" : "Archive"}</button>
