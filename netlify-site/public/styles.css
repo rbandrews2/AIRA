@@ -202,6 +202,7 @@ label {
 .status-dot {
   width: 10px;
   height: 10px;
+  flex: 0 0 10px;
   border-radius: 999px;
   background: var(--green);
   box-shadow: 0 0 18px rgba(53, 201, 121, 0.75);
@@ -1029,6 +1030,6 @@ body { background:#111715; }
 .transcript-bubble p { white-space:pre-wrap; line-height:1.65; margin:5px 0; }
 button:focus-visible,summary:focus-visible { outline:2px solid #e0be80; outline-offset:3px; }
 @media(max-width:760px) {
-.app-shell { padding:0 14px 20px; }.topbar { padding:16px 0; }.brand small { max-width:170px; font-size:10px; }.status { font-size:10px; max-width:100px; }.tabs { width:100%; }.tabs button { flex:1; min-width:0; }.inbox-heading { padding:20px 0; }.inbox-heading h1 { font-size:26px; }.inbox-heading .eyebrow { font-size:8px; }
+.app-shell { padding:0 14px 20px; }.topbar { padding:16px 0; }.brand small { max-width:170px; font-size:10px; }.status { font-size:13px; max-width:100%; width:fit-content; white-space:normal; }.tabs { width:100%; }.tabs button { flex:1; min-width:0; }.inbox-heading { padding:20px 0; }.inbox-heading h1 { font-size:26px; }.inbox-heading { flex-wrap:wrap; }.inbox-heading .eyebrow { font-size:13px; line-height:1.5; letter-spacing:.04em; color:#d4dfd7; }.thread-heading span { font-size:14px; }
 .messenger { grid-template-columns:1fr; }.thread-sidebar { border-right:0; border-bottom:1px solid #344039; }#inboxList { max-height:240px; }#callerDetail { padding:22px; }.empty-conversation { margin:35px auto; }.message-bubble { margin-top:24px; padding:18px; }.transcript-bubble { max-width:94%; }
 }

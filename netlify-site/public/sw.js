@@ -1,4 +1,4 @@
-const CACHE_NAME = "aira-ai-v17-messaging";
+const CACHE_NAME = "aira-ai-v18-mobile-readability";
 const STATIC_ASSETS = [
   "/",
   "/index.html",
